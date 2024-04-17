@@ -3,6 +3,7 @@ from sqlalchemy.orm import validates
 from uuid import uuid4
 from datetime import datetime
 from util.enum import DifficultyEnum, StatusEnum
+import re
 
 import json
 
@@ -22,6 +23,7 @@ user_games = db.Table(
 class User(db.Model):
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid4()))
     username = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String, unique=True, nullable=True)
     password = db.Column(db.String(20), nullable=True)
     games = db.relationship("Game", secondary=user_games, backref="players")
     rounds = db.relationship(
@@ -32,6 +34,13 @@ class User(db.Model):
     def validate_password(self, key, value):
         if value and len(value) < 8:
             raise ValueError("Password has to be at least 8 characters when provided.")
+        return value
+
+    @validates("email")
+    def validate_email(self, key, value):
+        regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b"
+        if value and not re.match(regex, value):
+            raise ValueError("Invalid email address format.")
         return value
 
 

@@ -19,6 +19,23 @@ class TestUserModel:
         new_user = User(username="bruce", password="shortest")
         assert new_user.password == "shortest"
 
+    def test_validate_email_invalidFormat(self):
+        new_user = User()
+        with pytest.raises(ValueError, match="Invalid email address format."):
+            new_user.email = "johnsmith"
+        with pytest.raises(ValueError, match="Invalid email address format."):
+            new_user.email = "johnsmith@a"
+        with pytest.raises(ValueError, match="Invalid email address format."):
+            new_user.email = "johnsmith@a.c"
+
+    def test_validate_email_validFormats(self):
+        new_user = User()
+        new_user.email = "johnsmith@aol.com"
+        assert new_user
+        new_user.email = "johnsmith@gmail.com"
+        assert new_user
+        assert new_user.email is "johnsmith@gmail.com"
+
 
 class TestDifficultyMode:
     def test_max_turns_number_error(self):
