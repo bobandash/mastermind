@@ -2,12 +2,9 @@ from flask import Flask
 from dotenv import load_dotenv
 from models.models import db
 from flask_migrate import Migrate
-import os
+from routes import auth_bp, game_bp, round_bp, user_bp
 
-# TODO: for the mvp, will implement with JWT Token to save time
-# however, for the game routes from my understanding, there's not a lot of performance benefit.
-# the statelessness of jwt token for the majority of the routes is not needed, you would have the make db calls with the user_id
-# If I use session based auth with redis as cache layer, I can at least logout the users if they get hacked
+# TODO: for the mvp, will implement with JWT Token to save time; look into Redis and session tokens (not huge priority)
 
 
 def create_app():
@@ -16,6 +13,10 @@ def create_app():
     app.config.from_object("config.Config")
     db.init_app(app)
     migrate = Migrate(app, db)
+    app.register_blueprint(auth_bp.auth_bp, url_prefix="/auth")
+    app.register_blueprint(user_bp.user_bp, url_prefix="/users")
+    app.register_blueprint(game_bp.game_bp, url_prefix="/games")
+    app.register_blueprint(round_bp.round_bp, url_prefix="/rounds")
     return app
 
 
