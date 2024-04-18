@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models.models import Game, User, Difficulty, Round, db
-from util.decorators import session_required, game_valid_for_user_given_game_id
+from util.decorators import session_required, check_user_in_game
 from util.enum import DifficultyEnum, StatusEnum
 from util.code import get_random_secret_code
 
@@ -90,7 +90,7 @@ def create_new_game():
 
 @game_bp.route("/<game_id>/rounds", methods=["POST"])
 @session_required
-@game_valid_for_user_given_game_id
+@check_user_in_game
 def create_game_rounds(game_id):
     user = request.user
     game = request.game
@@ -154,7 +154,7 @@ def create_game_rounds(game_id):
 # TODO: If have time, add this functionality to the multiplayer game
 @game_bp.route("/<game_id>/random-code", methods=["GET"])
 @session_required
-@game_valid_for_user_given_game_id
+@check_user_in_game
 def generate_secret_code(game_id):
     game = request.game
     num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors

@@ -1,5 +1,5 @@
 from functools import wraps
-from models.models import User, Game
+from models.models import User, Game, Round
 from flask import session, jsonify, request
 
 
@@ -21,7 +21,7 @@ def session_required(fn):
 
 
 # depends on session_required to run before
-def game_valid_for_user_given_game_id(fn):
+def check_user_in_game(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
         user = request.user
