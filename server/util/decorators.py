@@ -20,9 +20,8 @@ def session_required(fn):
     return decorator
 
 
-# session_required has to be run first
-# checks whether user is inside game; otherwise return error
-def user_inside_game(fn):
+# depends on session_required to run before
+def game_valid_for_user(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
         user = request.user

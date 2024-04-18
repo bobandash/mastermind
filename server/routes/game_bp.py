@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 import requests
 from models.models import Game, User, Difficulty, Round, db
-from util.decorators import session_required, user_inside_game
+from util.decorators import session_required, game_valid_for_user
 from util.enum import DifficultyEnum, StatusEnum
+from util.code import get_random_secret_code
 import json
 
 
@@ -42,6 +43,11 @@ def create_new_game():
         if difficulty != DifficultyEnum.CUSTOM.name:
             # there should be only one NORMAL and HARD in the database
             curr_difficulty = Difficulty.query.filter_by(mode=difficulty).first()
+            if not curr_difficulty:
+                return (
+                    jsonify({"message": "NORMAL or HARD difficulty does not exist"}),
+                    400,
+                )
             num_holes, num_colors = (
                 curr_difficulty.num_holes,
                 curr_difficulty.num_colors,
@@ -56,41 +62,50 @@ def create_new_game():
             if not curr_difficulty:
                 return jsonify({"message": "Custom difficulty does not exist"}), 400
 
-        new_game = Game(
-            is_multiplayer=is_multiplayer,
-            difficulty=curr_difficulty.id,
-            status=StatusEnum.IN_PROGRESS.name,
-        )
-        new_game.players.append(user)
-        db.session.add(new_game)
-        db.session.commit()
+        try:
+            new_game = Game(
+                is_multiplayer=is_multiplayer,
+                difficulty=curr_difficulty,
+                status=StatusEnum.IN_PROGRESS.name,
+            )
+            new_game.players.append(user)
+            db.session.add(new_game)
+            db.session.commit()
 
-        game_data = {
-            "id": new_game.id,
-            "is_multiplayer": is_multiplayer,
-            "difficulty": curr_difficulty.mode.name,
-            "players": [player.id for player in new_game.players],
-        }
-
-        return jsonify(game_data), 201
+            game_data = {
+                "id": new_game.id,
+                "is_multiplayer": is_multiplayer,
+                "difficulty": curr_difficulty.mode.name,
+                "players": [player.id for player in new_game.players],
+            }
+            return jsonify(game_data), 201
+        except:
+            return jsonify({"message": "Could not create game."}), 400
 
     # TODO handle multiplayer
     return jsonify({"message": "Did not handle multiplayer yet"}), 400
 
 
-# Generates random secret code
-# TODO: If have time, add this functionality to the multiplayer game
-@game_bp.route("/<game_id>/random-code", methods=["GET"])
+# TODO: Get game overview of all rounds
+# @game_bp.route('/<game_id>/rounds', methods=["GET"])
+# def get_and_create_game_rounds():
+
+
+@game_bp.route("/<game_id>/rounds", methods=["POST"])
 @session_required
-def generate_secret_code(game_id):
+@game_valid_for_user
+def create_game_rounds(game_id):
     user = request.user
-    game = Game.query.get(game_id)
-    if not game:
-        return jsonify({"message": "Game does not exist."}), 400
-    if user not in game.players:
-        return jsonify({"message": "User is in not in game."}), 400
-    num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
-    try:
+    game = request.game
+    if len(game.rounds) == game.num_rounds:
+        return (
+            jsonify(
+                {"message": "Cannot create any more rounds. Game is on last round."}
+            ),
+            400,
+        )
+
+    if game.is_multiplayer == False:
         params = {
             "num": num_holes,
             "min": 0,
@@ -102,7 +117,31 @@ def generate_secret_code(game_id):
         random_code = requests.get(
             "https://www.random.org/integers", params=params
         ).text.split("\n")[:-1]
-        int_random_code = json.dumps(list(map(int, random_code)))
-        return jsonify({"secret_code": int_random_code}), 200
+        new_round = Round(
+            game=game.id,
+            status=StatusEnum.IN_PROGRESS,
+            code_breaker=user.id,
+            round_num=1,
+        )
+    else:
+        # TODO: handle multiplayer
+        data = request.get_json()
+        secret_code = data.get("secret_code")
+        if not secret_code:
+            return jsonify({"message": "User did not provide secret code."}), 400
+    return jsonify({"message": "Test"}), 200
+
+
+# Generates random secret code
+# TODO: If have time, add this functionality to the multiplayer game
+@game_bp.route("/<game_id>/random-code", methods=["GET"])
+@session_required
+@game_valid_for_user
+def generate_secret_code(game_id):
+    game = request.game
+    num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
+    try:
+        random_code = get_random_secret_code(num_holes, num_colors)
+        return jsonify({"secret_code": random_code}), 200
     except:
         return jsonify({"message": "Error generating secret code"}), 500
