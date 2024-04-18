@@ -24,17 +24,11 @@ class User(db.Model):
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid4()))
     username = db.Column(db.String(20), nullable=True)
     email = db.Column(db.String, unique=True, nullable=True)
-    password = db.Column(db.String(20), nullable=True)
+    password = db.Column(db.String, nullable=True)
     games = db.relationship("Game", secondary=user_games, backref="players")
     rounds = db.relationship(
         "Round", backref="rounds"
     )  # stores rounds that the user is the code-breaker
-
-    @validates("password")
-    def validate_password(self, key, value):
-        if value and len(value) < 8:
-            raise ValueError("Password has to be at least 8 characters when provided.")
-        return value
 
     @validates("email")
     def validate_email(self, key, value):

@@ -5,20 +5,6 @@ import json
 
 
 class TestUserModel:
-    def assert_password_raises_length_error(self, password):
-        with pytest.raises(
-            ValueError, match="Password has to be at least 8 characters when provided."
-        ):
-            new_user = User(password=password)
-
-    def test_password_too_short(self):
-        self.assert_password_raises_length_error("short")
-        self.assert_password_raises_length_error("shortes")
-
-    def test_password_valid_length(self):
-        new_user = User(username="bruce", password="shortest")
-        assert new_user.password == "shortest"
-
     def test_validate_email_invalidFormat(self):
         new_user = User()
         with pytest.raises(ValueError, match="Invalid email address format."):
