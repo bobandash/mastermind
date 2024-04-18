@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import requests
 from models.models import Game, User, Difficulty, Round, db
-from util.decorators import session_required
+from util.decorators import session_required, user_inside_game
 from util.enum import DifficultyEnum, StatusEnum
 import json
 
@@ -12,77 +12,70 @@ game_bp = Blueprint("game_bp", __name__)
 @game_bp.route("/", methods=["POST"])
 @session_required
 def create_new_game():
-    # TODO: handle validation of these fields
     user = request.user
+    try:
+        data = request.get_json()
+    except:
+        return (
+            jsonify({"message": "Game settings is not provided in correct format."}),
+            415,
+        )
     difficulty_names = [member.name for member in DifficultyEnum]
     is_multiplayer, difficulty, max_turns, num_holes, num_colors = (
-        request.args.get("is_multiplayer", type=bool),
-        request.args.get("difficulty", type=str),
-        request.args.get("max_turns", type=int),
-        request.args.get("num_holes", type=int),
-        request.args.get("num_colors", type=int),
+        data.get("is_multiplayer"),
+        data.get("difficulty"),
+        data.get("max_turns"),
+        data.get("num_holes"),
+        data.get("num_colors"),
     )
-    if not all([is_multiplayer, difficulty]):
+    if is_multiplayer is None or difficulty is None:
         return jsonify({"message": "Game settings must be provided."}), 400
     if difficulty not in difficulty_names:
         return jsonify({"message": "Difficulty is not valid."}), 400
-    # TODO: Handle validation for num_holes and num_colors to make sure it's ok
     if difficulty == DifficultyEnum.CUSTOM.name and not all(
         [max_turns, num_holes, num_colors]
     ):
         return jsonify({"message": "Custom difficulty settings are not valid."}), 400
 
-    # TODO: handle multiplayer functionality with sockets
-    # TODO: handle custom functionality
     # Case: Single player functionality
     if is_multiplayer == False:
         if difficulty != DifficultyEnum.CUSTOM.name:
-            # there is only one normal and hard in the database
+            # there should be only one NORMAL and HARD in the database
             curr_difficulty = Difficulty.query.filter_by(mode=difficulty).first()
             num_holes, num_colors = (
                 curr_difficulty.num_holes,
                 curr_difficulty.num_colors,
             )
-            params = {
-                "num": num_holes,
-                "min": 0,
-                "max": num_colors - 1,
-                "col": 1,
-                "base": 10,
-                "format": "plain",
-            }
-            # random code is in format 1\n2\n, etc
-            random_code = (
-                requests.get(f"https://www.random.org/clients/http/api", params).text
-            ).split("\n")
-            random_code = json.dumps(random_code)
-            # Single player games are initialized with one round
-            new_game = Game(
-                is_multiplayer=is_multiplayer,
-                difficulty=curr_difficulty,
-                status=StatusEnum.IN_PROGRESS.name,
-            )
-            new_round = Round(
-                game=new_game,
-                status=StatusEnum.IN_PROGRESS,
-                code_breaker=user,
-                round_num=1,
-                secret_code=random_code,
-            )
-            db.session.add(new_game)
-            db.session.add(new_round)
-            db.session.commit()
-            return jsonify({"message": "Game has been successfully created"}), 200
         else:
-            # TODO: custom difficulty
-            return jsonify({"message": "TODO"}), 400
-    # TODO multiplayer
-    return jsonify({"message": "TODO"}), 400
+            curr_difficulty = Difficulty.query.filter(
+                Difficulty.max_turns == max_turns,
+                Difficulty.mode == DifficultyEnum.CUSTOM.name,
+                Difficulty.num_holes == num_holes,
+                Difficulty.num_colors == num_colors,
+            ).first()
+            if not curr_difficulty:
+                return jsonify({"message": "Custom difficulty does not exist"}), 400
 
+        new_game = Game(
+            is_multiplayer=is_multiplayer,
+            difficulty=curr_difficulty.id,
+            status=StatusEnum.IN_PROGRESS.name,
+        )
+        new_game.players.append(user)
+        db.session.add(new_game)
+        db.session.commit()
 
-# @game_bp.route("/<game_id>/rounds", methods=["POST"])
-# @session_required
-# def create_new_round(game_id):
+        game_data = {
+            "id": new_game.id,
+            "is_multiplayer": is_multiplayer,
+            "difficulty": curr_difficulty.mode.name,
+            "players": [player.id for player in new_game.players],
+        }
+
+        return jsonify(game_data), 201
+
+    # TODO handle multiplayer
+    return jsonify({"message": "Did not handle multiplayer yet"}), 400
 
 
 # Generates random secret code
