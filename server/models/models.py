@@ -23,9 +23,10 @@ user_games = db.Table(
 class User(db.Model):
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid4()))
     username = db.Column(db.String(20), nullable=True)
-    email = db.Column(db.String, unique=True, nullable=True)
+    email = db.Column(db.String(255), unique=True, nullable=True)
     password = db.Column(db.String, nullable=True)
     games = db.relationship("Game", secondary=user_games, backref="players")
+    games_won = db.relationship("Game", backref="winner")
     rounds = db.relationship(
         "Round", backref="code_breaker"
     )  # stores rounds that the user is the code-breaker
@@ -63,7 +64,7 @@ class Game(db.Model):
     )
     status = db.Column(db.Enum(StatusEnum), nullable=False)
     num_rounds = db.Column(db.Integer, default=1, nullable=False)
-    winner = db.Column(db.String, db.ForeignKey("user.id"))
+    winner_id = db.Column(db.String, db.ForeignKey("user.id"))
     rounds = db.relationship("Round", backref="game")
 
     @validates("num_rounds")
@@ -79,7 +80,9 @@ class Round(db.Model):
     status = db.Column(db.Enum(StatusEnum), nullable=False)
     code_breaker_id = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
     round_num = db.Column(db.Integer, nullable=False)
-    secret_code = db.Column(db.String, nullable=False)
+    secret_code = db.Column(
+        db.String(255), nullable=False
+    )  # Stored as a json.dumps array of integers
     points = db.Column(db.Integer, default=None)
     turns = db.relationship("Turn", backref="round")
 
@@ -115,9 +118,11 @@ class Round(db.Model):
 class Turn(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False)
-    turn_num = db.Column(db.Integer, nullable=False)
-    guess = db.Column(db.String, nullable=False)
-    result = db.Column(db.String(255), nullable=False)  # stored as a serialized json
+    turn_num = db.Column(db.Integer, nullable=False)  # Starts from 1 index
+    guess = db.Column(db.String(255), nullable=False)
+    result = db.Column(
+        db.String(255), nullable=False
+    )  # Stored as a encoded json (typically in format {won_round, black_pegs: Int, white_pegs: Int, message: Str})
 
     @validates("guess")
     def validate_guess(self, key, value):
@@ -144,13 +149,18 @@ class Turn(db.Model):
         try:
             res_map = json.loads(value)
         except:
-            raise ValueError(
-                "Result is in invalid format (should be json encoded list of black_pegs and white_pegs)."
-            )
+            raise ValueError("Turn's result is not in the proper format.")
 
         if not (
-            set(res_map.keys()) == {"black_pegs", "white_pegs"}
-            and all(isinstance(res_map[k], int) for k in res_map)
+            set(res_map.keys()) == {"won_round", "black_pegs", "white_pegs", "message"}
+            and all(
+                [
+                    isinstance(res_map["won_round"], bool),
+                    isinstance(res_map["black_pegs"], int),
+                    isinstance(res_map["white_pegs"], int),
+                    isinstance(res_map["message"], str),
+                ]
+            )
         ):
             raise ValueError("Turn's result is not in the proper format.")
 

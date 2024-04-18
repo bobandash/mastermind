@@ -262,14 +262,14 @@ class TestTurnModel:
         new_guess = json.dumps([1, 1, 1, 7])
         with pytest.raises(
             ValueError,
-            match="Result is in invalid format \\(should be json encoded list of black_pegs and white_pegs\\).",
+            match="Turn's result is not in the proper format.",
         ):
             result = "black_pegs: 1, white_pegs: 2"
             new_turn = Turn(round=new_round, turn_num=1, guess=new_guess, result=result)
 
         with pytest.raises(
             ValueError,
-            match="Result is in invalid format \\(should be json encoded list of black_pegs and white_pegs\\).",
+            match="Turn's result is not in the proper format.",
         ):
             result = "black_pegs: 1, white_pegs: 2"
             new_turn = Turn(round=new_round, turn_num=1, guess=new_guess, result=result)
@@ -281,19 +281,40 @@ class TestTurnModel:
             ValueError,
             match="Number of pegs is invalid.",
         ):
-            result = json.dumps({"black_pegs": -1, "white_pegs": 2})
+            result = json.dumps(
+                {
+                    "won_round": True,
+                    "message": "Hello",
+                    "black_pegs": -1,
+                    "white_pegs": 2,
+                }
+            )
             new_turn = Turn(round=new_round, turn_num=1, guess=new_guess, result=result)
 
         with pytest.raises(
             ValueError,
             match="White and black pegs exceed number of holes.",
         ):
-            result = json.dumps({"black_pegs": 3, "white_pegs": 2})
+            result = json.dumps(
+                {
+                    "black_pegs": 3,
+                    "white_pegs": 2,
+                    "won_round": True,
+                    "message": "test message",
+                }
+            )
             new_turn = Turn(round=new_round, turn_num=1, guess=new_guess, result=result)
 
     def test_result_matches_format(self):
         new_round = self.setup_round(4, 8)
-        result = json.dumps({"black_pegs": 1, "white_pegs": 2})
+        result = json.dumps(
+            {
+                "won_round": True,
+                "black_pegs": 1,
+                "white_pegs": 2,
+                "message": "test message",
+            }
+        )
         new_guess = json.dumps([1, 1, 1, 1])
         new_turn = Turn(round=new_round, turn_num=1, guess=new_guess, result=result)
         assert new_turn
