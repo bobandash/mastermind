@@ -1,11 +1,8 @@
 from flask import Blueprint, request, jsonify
-import requests
 from models.models import Game, User, Difficulty, Round, db
-from util.decorators import session_required, game_valid_for_user
+from util.decorators import session_required, game_valid_for_user_given_game_id
 from util.enum import DifficultyEnum, StatusEnum
 from util.code import get_random_secret_code
-import json
-
 
 game_bp = Blueprint("game_bp", __name__)
 
@@ -86,18 +83,18 @@ def create_new_game():
     return jsonify({"message": "Did not handle multiplayer yet"}), 400
 
 
-# TODO: Get game overview of all rounds
+# TODO: Get game overview of all rounds, maybe to keep track of score in the future?
 # @game_bp.route('/<game_id>/rounds', methods=["GET"])
 # def get_and_create_game_rounds():
 
 
 @game_bp.route("/<game_id>/rounds", methods=["POST"])
 @session_required
-@game_valid_for_user
+@game_valid_for_user_given_game_id
 def create_game_rounds(game_id):
     user = request.user
     game = request.game
-    if len(game.rounds) == game.num_rounds:
+    if len(game.rounds) >= game.num_rounds:
         return (
             jsonify(
                 {"message": "Cannot create any more rounds. Game is on last round."}
@@ -105,23 +102,44 @@ def create_game_rounds(game_id):
             400,
         )
 
+    if game.rounds and game.rounds[-1].status == StatusEnum.IN_PROGRESS:
+        return (
+            jsonify(
+                {
+                    "message": "Cannot create a round. Previous round is still in progress."
+                }
+            ),
+            400,
+        )
+
     if game.is_multiplayer == False:
-        params = {
-            "num": num_holes,
-            "min": 0,
-            "max": num_colors - 1,
-            "col": 1,
-            "base": 10,
-            "format": "plain",
-        }
-        random_code = requests.get(
-            "https://www.random.org/integers", params=params
-        ).text.split("\n")[:-1]
+        num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
+        try:
+            secret_code = get_random_secret_code(num_holes, num_colors)
+        except:
+            return (
+                jsonify({"message": "Failed to generate computer's secret code."}),
+                400,
+            )
         new_round = Round(
-            game=game.id,
+            game_id=game.id,
             status=StatusEnum.IN_PROGRESS,
-            code_breaker=user.id,
+            code_breaker_id=user.id,
             round_num=1,
+            secret_code=secret_code,
+        )
+        db.session.add(new_round)
+        db.session.commit()
+        round_data = {
+            "round_id": new_round.id,
+            "code_breaker_id": user.id,
+            "round_num": 1,
+        }
+        return (
+            jsonify(
+                {"message": "Successfully created game.", "round_data": round_data}
+            ),
+            201,
         )
     else:
         # TODO: handle multiplayer
@@ -136,7 +154,7 @@ def create_game_rounds(game_id):
 # TODO: If have time, add this functionality to the multiplayer game
 @game_bp.route("/<game_id>/random-code", methods=["GET"])
 @session_required
-@game_valid_for_user
+@game_valid_for_user_given_game_id
 def generate_secret_code(game_id):
     game = request.game
     num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors

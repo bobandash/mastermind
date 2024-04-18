@@ -21,7 +21,7 @@ def session_required(fn):
 
 
 # depends on session_required to run before
-def game_valid_for_user(fn):
+def game_valid_for_user_given_game_id(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
         user = request.user
