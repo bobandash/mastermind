@@ -44,7 +44,7 @@ class Difficulty(db.Model):
     max_turns = db.Column(db.Integer, nullable=False)
     num_holes = db.Column(db.Integer, nullable=False)
     num_colors = db.Column(db.Integer, nullable=False)
-    games = db.relationship("Game", backref="difficulty_ref")
+    games = db.relationship("Game", backref="difficulty")
 
     @validates("max_turns", "num_holes", "num_colors")
     def validate_turns(self, key, value):
@@ -58,11 +58,13 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     is_multiplayer = db.Column(db.Boolean, nullable=False)
-    difficulty = db.Column(db.Integer, db.ForeignKey("difficulty.id"), nullable=False)
+    difficulty_id = db.Column(
+        db.Integer, db.ForeignKey("difficulty.id"), nullable=False
+    )
     status = db.Column(db.Enum(StatusEnum), nullable=False)
     num_rounds = db.Column(db.Integer, default=1, nullable=False)
     winner = db.Column(db.String, db.ForeignKey("user.id"))
-    rounds = db.relationship("Round", backref="game_ref")
+    rounds = db.relationship("Round", backref="game")
 
     @validates("num_rounds")
     def validate_num_rounds(self, key, value):
@@ -73,13 +75,13 @@ class Game(db.Model):
 
 class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    game = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
+    game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
     status = db.Column(db.Enum(StatusEnum), nullable=False)
     code_breaker = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
     round_num = db.Column(db.Integer, nullable=False)
     secret_code = db.Column(db.String, nullable=False)
     points = db.Column(db.Integer, default=None)
-    turns = db.relationship("Turn", backref="round_ref")
+    turns = db.relationship("Turn", backref="round")
 
     @validates("game", "secret_code")
     def validate_secret_code(self, key, value):
@@ -112,7 +114,7 @@ class Round(db.Model):
 # Rounds have multiple turns
 class Turn(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    round = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False)
+    round_id = db.Column(db.Integer, db.ForeignKey("round.id"), nullable=False)
     turn_num = db.Column(db.Integer, nullable=False)
     guess = db.Column(db.String, nullable=False)
     result = db.Column(db.String(255), nullable=False)  # stored as a serialized json
