@@ -27,7 +27,7 @@ class User(db.Model):
     password = db.Column(db.String, nullable=True)
     games = db.relationship("Game", secondary=user_games, backref="players")
     rounds = db.relationship(
-        "Round", backref="rounds"
+        "Round", backref="code_breaker"
     )  # stores rounds that the user is the code-breaker
 
     @validates("email")
@@ -77,7 +77,7 @@ class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey("game.id"), nullable=False)
     status = db.Column(db.Enum(StatusEnum), nullable=False)
-    code_breaker = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
+    code_breaker_id = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
     round_num = db.Column(db.Integer, nullable=False)
     secret_code = db.Column(db.String, nullable=False)
     points = db.Column(db.Integer, default=None)
