@@ -19,12 +19,20 @@ def user_username_operations():
     if request.method == "PATCH":
         new_username = request.args.get("username")
         if not new_username:
-            return jsonify({"message": "You did not provide a new username"}), 400
+            return jsonify({"message": "Username was not provided"}), 400
+        if len(new_username) > 20:
+            return (
+                jsonify({"message": "Username provided cannot exceed 20 characters."}),
+                400,
+            )
         user.username = new_username
         db.session.commit()
         return (
             jsonify(
-                {"message": "Successfully updated username", "username": new_username}
+                {
+                    "message": "Successfully updated username",
+                    "username": new_username,
+                }
             ),
             200,
         )
