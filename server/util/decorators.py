@@ -30,8 +30,26 @@ def check_user_in_game(fn):
         if not game:
             return jsonify({"message": "Game id is not valid."}), 400
         if user not in game.players:
-            return jsonify({"message": "User is not a player in the game"}), 401
+            return jsonify({"message": "User is not a player in the game."}), 401
         request.game = game
+        return fn(*args, **kwargs)
+
+    return decorator
+
+
+# depends on session_required to run before
+# Checks whether or not the user is the codebreaker in the specific round
+def check_user_is_codebreaker(fn):
+    @wraps(fn)
+    def decorator(*args, **kwargs):
+        user = request.user
+        round_id = kwargs.get("round_id")
+        round = Round.query.get(round_id)
+        if not round:
+            return jsonify({"message": "Round id is not valid."}), 400
+        if not user.id == round.code_breaker_id:
+            return jsonify({"message": "User is not the codebreaker."}), 401
+        request.round = round
         return fn(*args, **kwargs)
 
     return decorator
