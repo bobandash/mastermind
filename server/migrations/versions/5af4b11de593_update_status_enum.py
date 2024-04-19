@@ -1,8 +1,8 @@
-"""Reinit migration
+"""Update status enum
 
-Revision ID: 0f482cd5ded9
+Revision ID: 5af4b11de593
 Revises: 
-Create Date: 2024-04-18 11:59:57.758836
+Create Date: 2024-04-19 16:20:26.331802
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '0f482cd5ded9'
+revision = '5af4b11de593'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -29,7 +29,7 @@ def upgrade():
     op.create_table('user',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('username', sa.String(length=20), nullable=True),
-    sa.Column('email', sa.String(), nullable=True),
+    sa.Column('email', sa.String(length=255), nullable=True),
     sa.Column('password', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
@@ -39,22 +39,22 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('is_multiplayer', sa.Boolean(), nullable=False),
     sa.Column('difficulty_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('IN_PROGRESS', 'COMPLETED', 'TERMINATED', name='statusenum'), nullable=False),
+    sa.Column('status', sa.Enum('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'TERMINATED', name='statusenum'), nullable=False),
     sa.Column('num_rounds', sa.Integer(), nullable=False),
-    sa.Column('winner', sa.String(), nullable=True),
+    sa.Column('winner_id', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['difficulty_id'], ['difficulty.id'], ),
-    sa.ForeignKeyConstraint(['winner'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['winner_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('round',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('game_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('IN_PROGRESS', 'COMPLETED', 'TERMINATED', name='statusenum'), nullable=False),
-    sa.Column('code_breaker', sa.String(), nullable=False),
+    sa.Column('status', sa.Enum('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'TERMINATED', name='statusenum'), nullable=False),
+    sa.Column('code_breaker_id', sa.String(), nullable=False),
     sa.Column('round_num', sa.Integer(), nullable=False),
-    sa.Column('secret_code', sa.String(), nullable=False),
+    sa.Column('secret_code', sa.String(length=255), nullable=False),
     sa.Column('points', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['code_breaker'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['code_breaker_id'], ['user.id'], ),
     sa.ForeignKeyConstraint(['game_id'], ['game.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -68,7 +68,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('round_id', sa.Integer(), nullable=False),
     sa.Column('turn_num', sa.Integer(), nullable=False),
-    sa.Column('guess', sa.String(), nullable=False),
+    sa.Column('guess', sa.String(length=255), nullable=False),
     sa.Column('result', sa.String(length=255), nullable=False),
     sa.ForeignKeyConstraint(['round_id'], ['round.id'], ),
     sa.PrimaryKeyConstraint('id')
