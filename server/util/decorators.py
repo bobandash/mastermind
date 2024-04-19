@@ -20,7 +20,7 @@ def session_required(fn):
     return decorator
 
 
-# depends on session_required to run before
+# !👇 All decorators underneath depend on session_required being called before
 def check_user_in_game(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
@@ -49,6 +49,38 @@ def check_user_is_codebreaker(fn):
             return jsonify({"message": "Round id is not valid."}), 400
         if not user.id == round.code_breaker_id:
             return jsonify({"message": "User is not the codebreaker."}), 401
+        request.round = round
+        return fn(*args, **kwargs)
+
+    return decorator
+
+
+# Given specific round, checks whether or not the user is the codebreaker game
+def check_user_in_game(fn):
+    @wraps(fn)
+    def decorator(*args, **kwargs):
+        user = request.user
+        round_id = kwargs.get("round_id")
+        round = Round.query.get(round_id)
+        if not round:
+            return jsonify({"message": "Round id is not valid."}), 400
+        player_ids_in_game = [player.id for player in round.game.players]
+        if not user.id == player_ids_in_game:
+            return jsonify({"message": "User is not a part of the game."}), 401
+        request.round = round
+        return fn(*args, **kwargs)
+
+    return decorator
+
+
+def check_round_is_valid(fn):
+    @wraps(fn)
+    def decorator(*args, **kwargs):
+        user = request.user
+        round_id = kwargs.get("round_id")
+        round = Round.query.get(round_id)
+        if not round:
+            return jsonify({"message": "Round id is not valid."}), 400
         request.round = round
         return fn(*args, **kwargs)
 

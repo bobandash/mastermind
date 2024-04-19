@@ -1,8 +1,12 @@
 from flask import Blueprint
 from functools import wraps
-from models.models import Turn, db
+from models.models import Turn, db, Round
 from flask import session, jsonify, request
-from util.decorators import session_required, check_user_is_codebreaker
+from util.decorators import (
+    session_required,
+    check_user_is_codebreaker,
+    check_round_is_valid,
+)
 from util.enum import StatusEnum
 from util.game_logic import is_guess_proper_format, calculate_result
 import json
@@ -50,6 +54,7 @@ def make_move(round_id):
             )
         result = calculate_result(guess, secret_code)
         result_encoded, guess_encoded = json.dumps(result), json.dumps(guess)
+        turns_remaining = max_turns - curr_turn_num
         new_turn = Turn(
             round=round,
             turn_num=curr_turn_num,
@@ -68,8 +73,54 @@ def make_move(round_id):
         db.session.add(new_turn)
         db.session.commit()
         return (
-            jsonify({"message": "Successfully made turn.", "result": result_encoded}),
+            jsonify(
+                {
+                    "message": "Successfully made turn.",
+                    "turns_remaining": turns_remaining,
+                    "guess": guess_encoded,
+                    "result": result_encoded,
+                }
+            ),
             201,
+        )
+    except Exception as e:
+        error_message = str(e)
+        status_code = getattr(e, "code", 500)
+        return jsonify({"message": error_message}), status_code
+
+
+# TODO: Decide whether user needs to be in game to view this information
+# TODO: Decide if any more information needs to be added
+@round_bp.route("/<round_id>/turns", methods=["GET"])
+@session_required
+@check_round_is_valid
+def get_guesses_history(round_id):
+    try:
+        round = request.round
+        all_turns = Turn.query.filter_by(round_id=round.id).all()
+        max_turns, num_turns_used = 0, 0
+        if all_turns:
+            max_turns = all_turns[0].round.game.difficulty.max_turns
+            num_turns_used = len(all_turns)
+        turn_history = []
+
+        turn_history = [
+            {
+                "turn_num": turn.turn_num,
+                "guess": json.loads(turn.guess),
+                "result": json.loads(turn.result),
+            }
+            for turn in all_turns
+        ]
+        return (
+            jsonify(
+                {
+                    "max_turns": max_turns,
+                    "num_turns_used": num_turns_used,
+                    "turn_history": turn_history,
+                }
+            ),
+            200,
         )
     except Exception as e:
         error_message = str(e)
