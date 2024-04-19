@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.jpg";
-import axios from "axios";
 import Header from "../components/Header";
 import { useNavigate } from "react-router-dom";
+import authAxios from "../httpClient";
 const HomePage = () => {
   const navigate = useNavigate();
   const [isRulesVisible, setIsRulesVisible] = useState(true);
@@ -12,7 +12,7 @@ const HomePage = () => {
   useEffect(() => {
     async function register() {
       try {
-        await axios.post("/api/auth/register");
+        await authAxios.post("/api/auth/register");
       } catch {
         console.error("Error: could not create a session");
       }
