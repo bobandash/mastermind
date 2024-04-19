@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import HomePage from "./pages/Home";
 import SingleplayerSelect from "./pages/SingleplayerSelect";
+import Game from "./pages/Game";
 
 const router = createBrowserRouter([
   {
@@ -10,6 +11,10 @@ const router = createBrowserRouter([
   {
     path: "/singleplayer-select",
     element: <SingleplayerSelect />,
+  },
+  {
+    path: "/games/:gameId/rounds/:roundId",
+    element: <Game />,
   },
 ]);
 
