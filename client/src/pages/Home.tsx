@@ -1,21 +1,32 @@
-import { useState } from "react";
-import logo from "./assets/logo.jpg";
-
+import { useEffect, useState } from "react";
+import logo from "../assets/logo.jpg";
+import axios from "axios";
+import Header from "../components/Header";
+import { useNavigate } from "react-router-dom";
 const HomePage = () => {
+  const navigate = useNavigate();
   const [isRulesVisible, setIsRulesVisible] = useState(true);
   function toggleRulesVisible() {
     setIsRulesVisible((prev) => !prev);
   }
+  useEffect(() => {
+    async function register() {
+      try {
+        await axios.post("/api/auth/register");
+      } catch {
+        console.error("Error: could not create a session");
+      }
+    }
+    register();
+  }, []);
+
+  function redirectSinglePlayerSelect() {
+    navigate("/singleplayer-select");
+  }
 
   return (
-    <div>
-      <header className="flex bg-gray-400">
-        <div className="flex w-11/12 mx-auto justify-end py-2">
-          <button className="bg-white px-2 border-[1px] border-black rounded-lg">
-            Choose Name
-          </button>
-        </div>
-      </header>
+    <div className="pb-10">
+      <Header />
       <div className="w-11/12 max-w-[400px] mx-auto flex flex-col gap-8 pt-5 2xl:pt-8">
         {isRulesVisible && (
           <>
@@ -47,7 +58,10 @@ const HomePage = () => {
           </>
         )}
         <img src={logo} alt="mastermind logo" />
-        <button className="bg-[#F24545] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#f56262] transition-all">
+        <button
+          className="bg-[#F24545] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#f56262] transition-all"
+          onClick={redirectSinglePlayerSelect}
+        >
           Single Player
         </button>
         <button className="bg-[#464242] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#5a5a5a] transition-all">
