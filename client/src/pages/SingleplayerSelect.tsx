@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import Header from "../components/Header";
 import logo from "../assets/logo.jpg";
+import authAxios from "../httpClient";
 
-// Have to pass one of these strings
 const DIFFICULTIES = {
   NORMAL: "NORMAL",
   HARD: "HARD",
@@ -10,6 +10,12 @@ const DIFFICULTIES = {
 };
 
 const SingleplayerSelect = () => {
+  // data.get("is_multiplayer"),
+  // data.get("difficulty"),
+  // data.get("max_turns"),
+  // data.get("num_holes"),
+  // data.get("num_colors"),
+
   const [settings, setSettings] = useState({
     isMultiplayer: false,
     difficulty: DIFFICULTIES.NORMAL,
@@ -17,6 +23,32 @@ const SingleplayerSelect = () => {
     numHoles: 4,
     numColors: 8,
   });
+
+  async function createGame(e: React.FormEvent<HTMLFormElement>) {
+    try {
+      e.preventDefault();
+      const { difficulty, maxTurns, numHoles, numColors } = settings;
+      const gameResponse = await authAxios.post(
+        "/api/games",
+        {
+          is_multiplayer: false,
+          difficulty: difficulty,
+          max_turns: maxTurns,
+          num_holes: numHoles,
+          num_colors: numColors,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        }
+      );
+      console.log(gameResponse.data);
+    } catch {
+      console.error("Failed to create game.");
+    }
+  }
 
   const maxTurnRange = useMemo(() => {
     const res = [];
@@ -84,13 +116,13 @@ const SingleplayerSelect = () => {
           <img src={logo} alt="mastermind logo" />
           <h1 className="text-center text-4xl font-bold">Single Player Mode</h1>
         </div>
-        <form className="flex flex-col gap-6">
+        <form className="flex flex-col gap-6" onSubmit={createGame}>
           <div className="flex flex-col gap-1">
             <label htmlFor="difficulty" className="text-2xl font-bold">
               Difficulty:
             </label>
             <select
-              name="choice"
+              name="difficulty"
               className="border-2 border-black text-3xl pl-1"
               value={settings.difficulty}
               onChange={handleChangeDifficulty}
@@ -105,7 +137,7 @@ const SingleplayerSelect = () => {
               Max Turns:
             </label>
             <select
-              name="choice"
+              name="maxTurns"
               className="border-2 border-black text-3xl pl-1"
               value={settings.maxTurns}
               onChange={handleChangeMaxTurns}
@@ -123,7 +155,7 @@ const SingleplayerSelect = () => {
               Number of Holes:
             </label>
             <select
-              name="choice"
+              name="numHoles"
               className="border-2 border-black text-3xl pl-1"
               value={settings.numHoles}
               onChange={handleChangeNumHoles}
@@ -141,7 +173,7 @@ const SingleplayerSelect = () => {
               Number of Colors:
             </label>
             <select
-              name="choice"
+              name="numColors"
               className="border-2 border-black text-3xl pl-1"
               value={settings.numColors}
               onChange={handleChangeNumColors}
