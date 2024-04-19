@@ -35,30 +35,17 @@ def create_new_game():
     ):
         return jsonify({"message": "Custom difficulty settings are not valid."}), 400
 
+    curr_difficulty = Difficulty.query.filter(
+        Difficulty.max_turns == max_turns,
+        Difficulty.mode == DifficultyEnum.CUSTOM.name,
+        Difficulty.num_holes == num_holes,
+        Difficulty.num_colors == num_colors,
+    ).first()
+    if not curr_difficulty:
+        return jsonify({"message": "Custom difficulty does not exist"}), 400
+
     # Case: Single player functionality
     if is_multiplayer == False:
-        if difficulty != DifficultyEnum.CUSTOM.name:
-            # there should be only one NORMAL and HARD in the database
-            curr_difficulty = Difficulty.query.filter_by(mode=difficulty).first()
-            if not curr_difficulty:
-                return (
-                    jsonify({"message": "NORMAL or HARD difficulty does not exist"}),
-                    400,
-                )
-            num_holes, num_colors = (
-                curr_difficulty.num_holes,
-                curr_difficulty.num_colors,
-            )
-        else:
-            curr_difficulty = Difficulty.query.filter(
-                Difficulty.max_turns == max_turns,
-                Difficulty.mode == DifficultyEnum.CUSTOM.name,
-                Difficulty.num_holes == num_holes,
-                Difficulty.num_colors == num_colors,
-            ).first()
-            if not curr_difficulty:
-                return jsonify({"message": "Custom difficulty does not exist"}), 400
-
         try:
             new_game = Game(
                 is_multiplayer=is_multiplayer,
