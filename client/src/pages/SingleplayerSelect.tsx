@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Header from "../components/Header";
 import logo from "../assets/logo.jpg";
 import authAxios from "../httpClient";
-
+import { useNavigate } from "react-router-dom";
 const DIFFICULTIES = {
   NORMAL: "NORMAL",
   HARD: "HARD",
@@ -10,12 +10,7 @@ const DIFFICULTIES = {
 };
 
 const SingleplayerSelect = () => {
-  // data.get("is_multiplayer"),
-  // data.get("difficulty"),
-  // data.get("max_turns"),
-  // data.get("num_holes"),
-  // data.get("num_colors"),
-
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     isMultiplayer: false,
     difficulty: DIFFICULTIES.NORMAL,
@@ -24,27 +19,21 @@ const SingleplayerSelect = () => {
     numColors: 8,
   });
 
-  async function createGame(e: React.FormEvent<HTMLFormElement>) {
+  async function createSinglePlayerGame(e: React.FormEvent<HTMLFormElement>) {
     try {
       e.preventDefault();
       const { difficulty, maxTurns, numHoles, numColors } = settings;
-      const gameResponse = await authAxios.post(
-        "/api/games",
-        {
-          is_multiplayer: false,
-          difficulty: difficulty,
-          max_turns: maxTurns,
-          num_holes: numHoles,
-          num_colors: numColors,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-        }
-      );
-      console.log(gameResponse.data);
+      const gameResponse = await authAxios.post("/api/games", {
+        is_multiplayer: false,
+        difficulty: difficulty,
+        max_turns: maxTurns,
+        num_holes: numHoles,
+        num_colors: numColors,
+      });
+      const gameId = gameResponse.data.id;
+      const roundResponse = await authAxios.post(`/api/games/${gameId}/rounds`);
+      const roundId = roundResponse.data.round_data.id;
+      navigate(`/games/${gameId}/rounds/${roundId}`);
     } catch {
       console.error("Failed to create game.");
     }
@@ -116,7 +105,7 @@ const SingleplayerSelect = () => {
           <img src={logo} alt="mastermind logo" />
           <h1 className="text-center text-4xl font-bold">Single Player Mode</h1>
         </div>
-        <form className="flex flex-col gap-6" onSubmit={createGame}>
+        <form className="flex flex-col gap-6" onSubmit={createSinglePlayerGame}>
           <div className="flex flex-col gap-1">
             <label htmlFor="difficulty" className="text-2xl font-bold">
               Difficulty:

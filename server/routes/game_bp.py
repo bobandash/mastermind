@@ -131,13 +131,13 @@ def create_game_rounds(game_id):
         db.session.add(new_round)
         db.session.commit()
         round_data = {
-            "round_id": new_round.id,
+            "id": new_round.id,
             "code_breaker_id": user.id,
             "round_num": 1,
         }
         return (
             jsonify(
-                {"message": "Successfully created game.", "round_data": round_data}
+                {"message": "Successfully created round.", "round_data": round_data}
             ),
             201,
         )
