@@ -14,6 +14,57 @@ import json
 round_bp = Blueprint("round_bp", __name__)
 
 
+@round_bp.route("/<round_id>", methods=["GET"])
+@session_required
+@check_round_is_valid
+def get_round_details(round_id):
+    try:
+        round = request.round
+        game = round.game
+        round_ended = round.status == StatusEnum.COMPLETED
+        all_turns = Turn.query.filter_by(round_id=round.id).all()
+        max_turns, num_turns_used = 0, 0
+        max_turns, is_multiplayer, num_holes, num_colors = (
+            game.difficulty.max_turns,
+            game.is_multiplayer,
+            game.difficulty.num_holes,
+            game.difficulty.num_colors,
+        )
+
+        if all_turns:
+            num_turns_used = len(all_turns)
+
+        turn_history = [
+            {
+                "turn_num": turn.turn_num,
+                "guess": json.loads(turn.guess),
+                "result": json.loads(turn.result),
+            }
+            for turn in all_turns
+        ]
+
+        response_data = {
+            "id": round_id,
+            "is_multiplayer": is_multiplayer,
+            "turns_used": num_turns_used,
+            "turns_remaining": max_turns - num_turns_used,
+            "turn_history": turn_history,
+            "round_ended": round_ended,
+        }
+
+        if round_ended:
+            response_data["secret_code"] = json.loads(round.secret_code)
+
+        return (
+            jsonify(response_data),
+            200,
+        )
+    except Exception as e:
+        error_message = str(e)
+        status_code = getattr(e, "code", 500)
+        return jsonify({"message": error_message}), status_code
+
+
 @round_bp.route("/<round_id>/turns", methods=["POST"])
 @session_required
 @check_user_is_codebreaker
@@ -89,40 +140,7 @@ def make_move(round_id):
         return jsonify({"message": error_message}), status_code
 
 
-# TODO: Decide whether user needs to be in game to view this information
-# TODO: Decide if any more information needs to be added
-@round_bp.route("/<round_id>/turns", methods=["GET"])
-@session_required
-@check_round_is_valid
-def get_guesses_history(round_id):
-    try:
-        round = request.round
-        all_turns = Turn.query.filter_by(round_id=round.id).all()
-        max_turns, num_turns_used = 0, 0
-        if all_turns:
-            max_turns = all_turns[0].round.game.difficulty.max_turns
-            num_turns_used = len(all_turns)
-        turn_history = []
-
-        turn_history = [
-            {
-                "turn_num": turn.turn_num,
-                "guess": json.loads(turn.guess),
-                "result": json.loads(turn.result),
-            }
-            for turn in all_turns
-        ]
-        return (
-            jsonify(
-                {
-                    "max_turns": max_turns,
-                    "num_turns_used": num_turns_used,
-                    "turn_history": turn_history,
-                }
-            ),
-            200,
-        )
-    except Exception as e:
-        error_message = str(e)
-        status_code = getattr(e, "code", 500)
-        return jsonify({"message": error_message}), status_code
+# TODO:
+# @round_bp.route('/<round_id>/secret-code')
+# @session_required
+# def get_secret_code():
