@@ -56,7 +56,7 @@ def check_user_is_codebreaker(fn):
 
 
 # Given specific round, checks whether or not the user is the codebreaker game
-def check_user_in_game(fn):
+def check_user_in_round(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
         user = request.user
