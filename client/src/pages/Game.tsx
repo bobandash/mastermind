@@ -4,6 +4,27 @@ import authAxios from "../httpClient";
 import { useParams } from "react-router-dom";
 import Loading from "./Loading";
 
+// response_data = {
+//     round: {
+//         "id": round_id,
+//         "turns_used": num_turns_used,
+//         "turns_remaining": max_turns - num_turns_used,
+//         "status": round.status.name,
+//         "turn_history": turn_history,
+//         "secret_code": secret_code,
+//     },
+//     game: {
+//         "id": game.id,
+//         "is_multiplayer": is_multiplayer,
+//         "difficulty": {
+//             "mode": mode,
+//             "num_holes": num_holes,
+//             "num_colors": num_colors,
+//             "max_turns": max_turns,
+//         },
+//     },
+// }
+
 const Game = () => {
   const [gameInfo, setGameInfo] = useState({
     isMultiplayer: false,
@@ -23,6 +44,7 @@ const Game = () => {
       try {
         const response = await authAxios.get(`/api/v1.0/rounds/${roundId}`);
         const data = response.data;
+        console.log(data);
         const {
           is_multiplayer,
           round_ended,
@@ -39,7 +61,6 @@ const Game = () => {
           numTurnsUsed: turns_used,
         }));
         setIsLoading(false);
-        console.log(response.data);
       } catch {
         console.error("Could not get round details, please try again later.");
       }

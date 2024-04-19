@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, json
 from dotenv import load_dotenv
 from models.models import db
 from flask_migrate import Migrate
@@ -7,6 +7,7 @@ from routes import auth_bp, game_bp, round_bp, user_bp
 from routes.auth_bp import bcrypt
 from flask_cors import CORS
 from flask import Blueprint
+from werkzeug.exceptions import HTTPException
 
 
 def create_app():
@@ -19,10 +20,25 @@ def create_app():
     server_session = Session(app)
     migrate = Migrate(app, db)
     api_v1 = Blueprint("api_v1", __name__)
+
+    @app.errorhandler(HTTPException)
+    def handle_exception(e):
+        response = e.get_response()
+        response.data = json.dumps(
+            {
+                "code": e.code,
+                "name": e.name,
+                "message": e.description,
+            }
+        )
+        response.content_type = "application/json"
+        return response
+
     app.register_blueprint(auth_bp.auth_bp, url_prefix="/v1.0/auth")
     app.register_blueprint(user_bp.user_bp, url_prefix="/v1.0/users")
     app.register_blueprint(game_bp.game_bp, url_prefix="/v1.0/games")
     app.register_blueprint(round_bp.round_bp, url_prefix="/v1.0/rounds")
+
     return app
 
 

@@ -3,6 +3,7 @@ from models.models import Game, User, Difficulty, Round, db
 from util.decorators import session_required, check_user_in_game
 from util.enum import DifficultyEnum, StatusEnum
 from util.code import get_random_secret_code
+import json
 
 game_bp = Blueprint("game_bp", __name__)
 
@@ -15,9 +16,17 @@ def create_new_game():
         data = request.get_json()
     except:
         return (
-            jsonify({"message": "Game settings is not provided in correct format."}),
-            415,
+            jsonify(
+                {
+                    "error": {
+                        "code": "badRequest",
+                        "message": "Game settings were not provided.",
+                    }
+                }
+            ),
+            400,
         )
+
     difficulty_names = [member.name for member in DifficultyEnum]
     is_multiplayer, difficulty, max_turns, num_holes, num_colors = (
         data.get("is_multiplayer"),
@@ -26,23 +35,44 @@ def create_new_game():
         data.get("num_holes"),
         data.get("num_colors"),
     )
-    if is_multiplayer is None or difficulty is None:
-        return jsonify({"message": "Game settings must be provided."}), 400
-    if difficulty not in difficulty_names:
-        return jsonify({"message": "Difficulty is not valid."}), 400
-    if difficulty == DifficultyEnum.CUSTOM.name and not all(
-        [max_turns, num_holes, num_colors]
+    if (
+        not all(
+            value is not None
+            for value in [is_multiplayer, difficulty, max_turns, num_holes, num_colors]
+        )
+        or difficulty not in difficulty_names
     ):
-        return jsonify({"message": "Custom difficulty settings are not valid."}), 400
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "badRequest",
+                        "message": "Cannot process the request because a required field is missing or incorrect.",
+                    }
+                }
+            ),
+            400,
+        )
 
     curr_difficulty = Difficulty.query.filter(
         Difficulty.max_turns == max_turns,
-        Difficulty.mode == DifficultyEnum.CUSTOM.name,
+        Difficulty.mode == difficulty,
         Difficulty.num_holes == num_holes,
         Difficulty.num_colors == num_colors,
     ).first()
+
     if not curr_difficulty:
-        return jsonify({"message": "Custom difficulty does not exist"}), 400
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "badRequest",
+                        "message": "Cannot process the request because difficulty is missing.",
+                    }
+                }
+            ),
+            400,
+        )
 
     # Case: Single player functionality
     if is_multiplayer == False:
@@ -50,7 +80,7 @@ def create_new_game():
             new_game = Game(
                 is_multiplayer=is_multiplayer,
                 difficulty=curr_difficulty,
-                status=StatusEnum.IN_PROGRESS.name,
+                status=StatusEnum.NOT_STARTED.name,
             )
             new_game.players.append(user)
             db.session.add(new_game)
@@ -61,18 +91,38 @@ def create_new_game():
                 "is_multiplayer": is_multiplayer,
                 "difficulty": curr_difficulty.mode.name,
                 "players": [player.id for player in new_game.players],
+                "created_at": new_game.created_at,
             }
             return jsonify(game_data), 201
         except:
-            return jsonify({"message": "Could not create game."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": {
+                            "code": "badRequest",
+                            "message": "Game could not be created due to a format not matching the database.",
+                        }
+                    }
+                ),
+                400,
+            )
 
-    # TODO handle multiplayer
+    # TODO Handle Multiplayer
     return jsonify({"message": "Did not handle multiplayer yet"}), 400
 
 
-# TODO: Get game overview of all rounds, maybe to keep track of score in the future?
-# @game_bp.route('/<game_id>/rounds', methods=["GET"])
-# def get_and_create_game_rounds():
+@game_bp.route("/<game_id>", methods=["GET"])
+@session_required
+@check_user_in_game
+def get_game_details(game_id):
+    game = request.game
+    return jsonify(
+        {
+            "id": game.id,
+            "difficulty": game.difficulty,
+            "rounds": game.rounds,
+        }
+    )
 
 
 @game_bp.route("/<game_id>/rounds", methods=["POST"])

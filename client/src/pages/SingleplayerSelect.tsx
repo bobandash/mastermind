@@ -14,7 +14,7 @@ const SingleplayerSelect = () => {
   const [settings, setSettings] = useState({
     isMultiplayer: false,
     difficulty: DIFFICULTIES.NORMAL,
-    maxTurns: 8,
+    maxTurns: 10,
     numHoles: 4,
     numColors: 8,
   });
@@ -70,7 +70,7 @@ const SingleplayerSelect = () => {
       setSettings({
         ...settings,
         difficulty: e.target.value,
-        maxTurns: 8,
+        maxTurns: 10,
         numHoles: 4,
         numColors: 8,
       });

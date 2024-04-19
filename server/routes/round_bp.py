@@ -6,6 +6,7 @@ from util.decorators import (
     session_required,
     check_user_is_codebreaker,
     check_round_is_valid,
+    check_user_in_round,
 )
 from util.enum import StatusEnum
 from util.game_logic import is_guess_proper_format, calculate_result
@@ -21,19 +22,11 @@ def get_round_details(round_id):
     try:
         round = request.round
         game = round.game
-        round_ended = round.status == StatusEnum.COMPLETED
-        all_turns = Turn.query.filter_by(round_id=round.id).all()
-        max_turns, num_turns_used = 0, 0
-        max_turns, is_multiplayer, num_holes, num_colors = (
-            game.difficulty.max_turns,
-            game.is_multiplayer,
-            game.difficulty.num_holes,
-            game.difficulty.num_colors,
+        all_turns = (
+            Turn.query.filter_by(round_id=round.id).order_by(Turn.turn_num.asc()).all()
         )
-
-        if all_turns:
-            num_turns_used = len(all_turns)
-
+        max_turns = game.max_turns
+        num_turns_used = len(all_turns) if all_turns else 0
         turn_history = [
             {
                 "turn_num": turn.turn_num,
@@ -43,17 +36,17 @@ def get_round_details(round_id):
             for turn in all_turns
         ]
 
+        secret_code = None
+        if round.status == StatusEnum.COMPLETED:
+            secret_code = json.loads(round.secret_code)
         response_data = {
             "id": round_id,
-            "is_multiplayer": is_multiplayer,
+            "status": round.status.name,
             "turns_used": num_turns_used,
             "turns_remaining": max_turns - num_turns_used,
-            "turn_history": turn_history,
-            "round_ended": round_ended,
+            "turns": turn_history,
+            "secret_code": secret_code,
         }
-
-        if round_ended:
-            response_data["secret_code"] = json.loads(round.secret_code)
 
         return (
             jsonify(response_data),
@@ -143,4 +136,5 @@ def make_move(round_id):
 # TODO:
 # @round_bp.route('/<round_id>/secret-code')
 # @session_required
+# @check_user_in_round
 # def get_secret_code():

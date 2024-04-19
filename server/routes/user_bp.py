@@ -1,39 +1,52 @@
 from flask import Blueprint, request, session, jsonify
 from models.models import User, db
+from util.decorators import session_required
 
 user_bp = Blueprint("user_bp", __name__)
 
 
-@user_bp.route("/me", methods=["GET", "PATCH"])
-def user_username_operations():
-    user_id = session.get("user_id")
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"message": "Unauthorized access"}), 401
+# TODO: add stats
+@user_bp.route("/me", methods=["GET"])
+@session_required
+def get_user_details():
+    user = request.user
     if request.method == "GET":
         if not user.username:
             # Return anonymous as the username if not found
-            return jsonify({"username": ""}), 200
+            return jsonify({"id": user.id, "username": ""}), 200
         else:
-            return jsonify({"username": user.username}), 200
-    if request.method == "PATCH":
-        data = request.get_json()
-        new_username = data.get("username")
-        if not new_username:
-            return jsonify({"message": "Username was not provided"}), 400
-        if len(new_username) > 20:
-            return (
-                jsonify({"message": "Username provided cannot exceed 20 characters."}),
-                400,
-            )
-        user.username = new_username
-        db.session.commit()
+            return jsonify({"id": user.id, "username": user.username}), 200
+
+
+@user_bp.route("/me", methods=["PATCH"])
+@session_required
+def change_username():
+    user = request.user
+    data = request.get_json()
+    new_username = data.get("username")
+    if not new_username:
+        return jsonify({"message": "Username was not provided"}), 400
+    if len(new_username) > 20:
         return (
             jsonify(
                 {
-                    "message": "Successfully updated username",
-                    "username": new_username,
+                    "error": {
+                        "code": "badRequest",
+                        "message": "Username cannot exceed 20 characters.",
+                    }
                 }
             ),
-            200,
+            400,
         )
+    user.username = new_username
+    db.session.commit()
+    return (
+        jsonify(
+            {
+                "id": user.id,
+                "message": "Successfully updated username",
+                "username": new_username,
+            }
+        ),
+        200,
+    )
