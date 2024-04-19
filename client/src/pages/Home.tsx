@@ -12,7 +12,7 @@ const HomePage = () => {
   useEffect(() => {
     async function register() {
       try {
-        await authAxios.post("/api/auth/register");
+        await authAxios.post("/api/v1.0/auth/register");
       } catch {
         console.error("Error: could not create a session");
       }

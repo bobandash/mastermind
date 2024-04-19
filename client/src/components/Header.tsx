@@ -12,7 +12,7 @@ const Header = () => {
   useEffect(() => {
     async function getUsername() {
       try {
-        const response = await axios.get("/api/users/me");
+        const response = await axios.get("/api/v1.0/users/me");
         setUsername(response.data.username);
       } catch {
         console.error("Could not get username");
@@ -35,7 +35,7 @@ const Header = () => {
 
     try {
       const response = await axios.patch(
-        "/api/users/me",
+        "/api/v1.0/users/me",
         {
           username: usernameField,
         },

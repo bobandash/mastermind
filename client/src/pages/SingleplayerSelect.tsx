@@ -23,7 +23,7 @@ const SingleplayerSelect = () => {
     try {
       e.preventDefault();
       const { difficulty, maxTurns, numHoles, numColors } = settings;
-      const gameResponse = await authAxios.post("/api/games", {
+      const gameResponse = await authAxios.post("/api/v1.0/games", {
         is_multiplayer: false,
         difficulty: difficulty,
         max_turns: maxTurns,
