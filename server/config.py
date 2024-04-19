@@ -12,3 +12,7 @@ class Config:
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
     SESSION_REDIS = redis.from_url(os.getenv("REDIS_URL", "redis://127.0.0.1:6379"))
+    SESSION_COOKIE_PATH = "/"
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "None"

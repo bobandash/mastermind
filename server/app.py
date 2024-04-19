@@ -5,12 +5,14 @@ from flask_migrate import Migrate
 from flask_session import Session
 from routes import auth_bp, game_bp, round_bp, user_bp
 from routes.auth_bp import bcrypt
+from flask_cors import CORS
 
 
 def create_app():
     load_dotenv()
     app = Flask(__name__)
     app.config.from_object("config.Config")
+    CORS(app, supports_credentials=True)
     db.init_app(app)
     bcrypt.init_app(app)
     server_session = Session(app)
