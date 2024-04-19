@@ -13,11 +13,12 @@ def user_username_operations():
     if request.method == "GET":
         if not user.username:
             # Return anonymous as the username if not found
-            return jsonify({"username": "Anonymous"}), 200
+            return jsonify({"username": ""}), 200
         else:
             return jsonify({"username": user.username}), 200
     if request.method == "PATCH":
-        new_username = request.args.get("username")
+        data = request.get_json()
+        new_username = data.get("username")
         if not new_username:
             return jsonify({"message": "Username was not provided"}), 400
         if len(new_username) > 20:
