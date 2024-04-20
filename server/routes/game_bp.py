@@ -98,6 +98,7 @@ def get_game_details(game_id):
     return jsonify(
         {
             "id": game.id,
+            "status": game.status.name,
             "difficulty": {
                 "mode": difficulty.mode.name,
                 "max_turns": difficulty.max_turns,
@@ -151,7 +152,7 @@ def create_game_rounds(game_id):
             "round_num": 1,
         }
         return (
-            jsonify({"message": "Successfully created round.", "data": round_data}),
+            jsonify(round_data),
             201,
         )
     else:
