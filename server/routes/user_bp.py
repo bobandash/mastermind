@@ -1,11 +1,12 @@
 from flask import Blueprint, request, session, jsonify
 from models.models import User, db
 from util.decorators import session_required
+from util.json_errors import ErrorResponse
 
 user_bp = Blueprint("user_bp", __name__)
 
 
-# TODO: add stats
+# TODO: Add Stats
 @user_bp.route("/me", methods=["GET"])
 @session_required
 def get_user_details():
@@ -25,19 +26,9 @@ def change_username():
     data = request.get_json()
     new_username = data.get("username")
     if not new_username:
-        return jsonify({"message": "Username was not provided"}), 400
+        return ErrorResponse.bad_request("Username was not provided.")
     if len(new_username) > 20:
-        return (
-            jsonify(
-                {
-                    "error": {
-                        "code": "badRequest",
-                        "message": "Username cannot exceed 20 characters.",
-                    }
-                }
-            ),
-            400,
-        )
+        return ErrorResponse.bad_request("Username cannot exceed 20 characters.")
     user.username = new_username
     db.session.commit()
     return (

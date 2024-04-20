@@ -1,6 +1,7 @@
 from functools import wraps
 from models.models import User, Game, Round
 from flask import session, jsonify, request
+from util.json_errors import ErrorResponse
 
 
 # Checks if session is valid and passes the user down as a request
@@ -10,10 +11,10 @@ def session_required(fn):
     def decorator(*args, **kwargs):
         user_id = session.get("user_id")
         if not user_id:
-            return jsonify({"message": "Unauthorized access."}), 401
+            return ErrorResponse.not_authorized("Unauthorized access.")
         user = User.query.get(user_id)
         if not user:
-            return jsonify({"message": "Unauthorized access."}), 401
+            return ErrorResponse.not_authorized("Unauthorized access.")
         request.user = user
         return fn(*args, **kwargs)
 
@@ -28,9 +29,9 @@ def check_user_in_game(fn):
         game_id = kwargs.get("game_id")
         game = Game.query.get(game_id)
         if not game:
-            return jsonify({"message": "Game id is not valid."}), 400
+            return ErrorResponse.bad_request("Game id is not valid.")
         if user not in game.players:
-            return jsonify({"message": "User is not a player in the game."}), 401
+            return ErrorResponse.not_authorized("User is not a player in the game.")
         request.game = game
         return fn(*args, **kwargs)
 
@@ -46,16 +47,15 @@ def check_user_is_codebreaker(fn):
         round_id = kwargs.get("round_id")
         round = Round.query.get(round_id)
         if not round:
-            return jsonify({"message": "Round id is not valid."}), 400
+            return ErrorResponse.bad_request("Round id is not valid.")
         if not user.id == round.code_breaker_id:
-            return jsonify({"message": "User is not the codebreaker."}), 401
+            return ErrorResponse.not_authorized("User is not the codebreaker.")
         request.round = round
         return fn(*args, **kwargs)
 
     return decorator
 
 
-# Given specific round, checks whether or not the user is the codebreaker game
 def check_user_in_round(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
@@ -63,10 +63,10 @@ def check_user_in_round(fn):
         round_id = kwargs.get("round_id")
         round = Round.query.get(round_id)
         if not round:
-            return jsonify({"message": "Round id is not valid."}), 400
+            return ErrorResponse.bad_request("Round id is not valid.")
         player_ids_in_game = [player.id for player in round.game.players]
         if not user.id == player_ids_in_game:
-            return jsonify({"message": "User is not a part of the game."}), 401
+            return ErrorResponse.not_authorized("User is not a player in the game.")
         request.round = round
         return fn(*args, **kwargs)
 
@@ -80,7 +80,7 @@ def check_round_is_valid(fn):
         round_id = kwargs.get("round_id")
         round = Round.query.get(round_id)
         if not round:
-            return jsonify({"message": "Round id is not valid."}), 400
+            return ErrorResponse.bad_request("Round id is not valid.")
         request.round = round
         return fn(*args, **kwargs)
 
