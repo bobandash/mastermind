@@ -17,6 +17,20 @@ class ErrorResponse:
         )
 
     @staticmethod
+    def not_found(message):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "notFound",
+                        "message": message,
+                    }
+                }
+            ),
+            404,
+        )
+
+    @staticmethod
     def not_authorized(message):
         return (
             jsonify(
@@ -36,10 +50,24 @@ class ErrorResponse:
             jsonify(
                 {
                     "error": {
-                        "code": "server_error",
+                        "code": "serverError",
                         "message": message,
                     }
                 }
             ),
             500,
+        )
+
+    @staticmethod
+    def unexpected_error(message, status_code):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "notHandled",
+                        "message": message,
+                    }
+                }
+            ),
+            status_code,
         )
