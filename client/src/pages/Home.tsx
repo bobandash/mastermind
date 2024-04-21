@@ -64,7 +64,7 @@ const HomePage = () => {
         >
           Single Player
         </button>
-        <button className="bg-[#464242] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#5a5a5a] transition-all">
+        <button className="bg-[#464242] hover:bg-[#5a5a5a] text-white transition-all text-4xl w-full mx-auto border-2 border-black py-2 rounded-xl ">
           Multiplayer
         </button>
       </div>
