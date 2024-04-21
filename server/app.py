@@ -8,6 +8,7 @@ from routes.auth_bp import bcrypt
 from flask_cors import CORS
 from flask import Blueprint
 from werkzeug.exceptions import HTTPException
+from util.json_errors import ErrorResponse
 
 
 def create_app():
@@ -21,18 +22,20 @@ def create_app():
     migrate = Migrate(app, db)
     api_v1 = Blueprint("api_v1", __name__)
 
+    # Generic Error handler so try, except is not needed for every route
     @app.errorhandler(HTTPException)
     def handle_exception(e):
-        response = e.get_response()
-        response.data = json.dumps(
-            {
-                "code": e.code,
-                "name": e.name,
-                "message": e.description,
-            }
-        )
-        response.content_type = "application/json"
-        return response
+        error_message = str(e)
+        status_code = getattr(e, "code", 500)
+        if status_code == 400:
+            return ErrorResponse.bad_request(error_message)
+        elif status_code == 401:
+            return ErrorResponse.not_authorized(error_message)
+        elif status_code == 404:
+            return ErrorResponse.not_found(error_message)
+        elif status_code == 500:
+            return ErrorResponse.server_error(error_message)
+        return ErrorResponse.unexpected_error(error_message, status_code)
 
     app.register_blueprint(auth_bp.auth_bp, url_prefix="/v1.0/auth")
     app.register_blueprint(user_bp.user_bp, url_prefix="/v1.0/users")
