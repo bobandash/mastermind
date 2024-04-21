@@ -106,6 +106,7 @@ def get_game_details(game_id):
                 "num_colors": difficulty.num_colors,
             },
             "rounds": rounds_data,
+            "is_multiplayer": game.is_multiplayer,
         }
     )
 
