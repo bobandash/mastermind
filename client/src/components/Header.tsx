@@ -35,7 +35,7 @@ const Header = () => {
 
     try {
       const response = await axios.patch(
-        "/api/v1.0/users/me",
+        "/api/v1.0/users/me/username",
         {
           username: usernameField,
         },

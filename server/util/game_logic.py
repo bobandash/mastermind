@@ -1,3 +1,7 @@
+import json
+import requests
+
+
 def is_guess_proper_format(guess, secret_code, num_colors):
     if len(secret_code) != len(guess):
         return False
@@ -40,3 +44,24 @@ def calculate_result(guess, secret_code):
         "white_pegs": white_pegs,
         "message": message,
     }
+
+
+def get_random_secret_code(num_holes, num_colors):
+    try:
+        params = {
+            "num": num_holes,
+            "min": 0,
+            "max": num_colors - 1,
+            "col": 1,
+            "base": 10,
+            "format": "plain",
+        }
+        random_code = requests.get(
+            "https://www.random.org/integers", params=params
+        ).text.split("\n")[:-1]
+        random_code = json.dumps(list(map(int, random_code)))
+        return random_code
+    except requests.exceptions.RequestException as e:
+        raise requests.exceptions.RequestException(
+            "Failed to generate computer's secret code."
+        )

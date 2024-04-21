@@ -11,7 +11,8 @@ from util.enum import StatusEnum
 from util.game_logic import is_guess_proper_format, calculate_result
 from util.json_errors import ErrorResponse
 import json
-
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 round_bp = Blueprint("round_bp", __name__)
 
@@ -27,11 +28,15 @@ def get_round_details(round_id):
     # this will ensure that the round is in the game
     game_id = request.args.get("game_id")
     if game_id and game.id != int(game_id):
-        return ErrorResponse.not_found("Round is not in game id.")
+        return ErrorResponse.handle_error("Round does not exist in game", 404)
 
-    all_turns = (
-        Turn.query.filter_by(round_id=round.id).order_by(Turn.turn_num.asc()).all()
-    )
+    try:
+        all_turns = (
+            Turn.query.filter_by(round_id=round.id).order_by(Turn.turn_num.asc()).all()
+        )
+    except SQLAlchemyError as e:
+        logging.error(f"Error fetching all turns in round: {str(e)}")
+        return ErrorResponse.handle_error("Turns were not able to be fetched", 503)
     max_turns = game.difficulty.max_turns
     num_turns_used = len(all_turns) if all_turns else 0
     turn_history = [
@@ -67,55 +72,71 @@ def get_round_details(round_id):
 @session_required
 @check_user_is_codebreaker
 def make_move(round_id):
+    if request.content_type != "application/json":
+        return ErrorResponse.handle_error("Guess was not provided.", 415)
+
     round, user = request.round, request.user
     secret_code = json.loads(round.secret_code)
     game = round.game
-    data = request.json
+    data = request.get_json()
     guess = data.get("guess")
     curr_turn_num = len(round.turns) + 1
     max_turns, num_colors = (
         game.difficulty.max_turns,
         game.difficulty.num_colors,
     )
-    if not data or (data and not guess):
-        return jsonify({"message": "Guess was not passed in the request."}), 400
 
+    if not guess:
+        return ErrorResponse.handle_error("Guess was not provided in payload.", 400)
     elif not is_guess_proper_format(guess, secret_code, num_colors):
-        return jsonify({"message": "Guess is not in the proper format."}), 400
-
+        return ErrorResponse.handle_error(
+            "Guess was not provided in correct format.", 400
+        )
     elif round.status == StatusEnum.COMPLETED or round.status == StatusEnum.TERMINATED:
-        return (
-            jsonify({"message": "Move cannot be made in completed/terminated round."}),
-            400,
+        return ErrorResponse.handle_error(
+            "Move cannot be made in completed/terminated round.", 400
         )
     elif curr_turn_num > max_turns:
-        return (
-            jsonify(
-                {"message": "Cannot make move (exceeds number of turns possible.)"}
-            ),
-            400,
+        return ErrorResponse.handle_error(
+            "Cannot make move (exceeds number of turns possible).", 400
         )
-    result = calculate_result(guess, secret_code)
-    result_encoded, guess_encoded = json.dumps(result), json.dumps(guess)
-    turns_remaining = max_turns - curr_turn_num
-    new_turn = Turn(
-        round=round,
-        turn_num=curr_turn_num,
-        guess=guess_encoded,
-        result=result_encoded,
-    )
-    if result["won_round"] == True or curr_turn_num == max_turns:
-        round.status = StatusEnum.COMPLETED
 
-    #! TODO: FOR SOME REASON, game's status does not update
-    if result["won_round"] == True:
-        round.points = curr_turn_num
-        # TODO: handle multiplayer logic in future, single player only has one round
-        if game.is_multiplayer == False:
-            game.winner = user
-            game.status = StatusEnum.COMPLETED
-    db.session.add(new_turn)
-    db.session.commit()
+    result = calculate_result(guess, secret_code)
+    won_round = result.get("won_round", False)
+
+    try:
+        new_turn = Turn(
+            round=round,
+            turn_num=curr_turn_num,
+            guess=json.dumps(guess),
+            result=json.dumps(result),
+        )
+    except (TypeError, ValueError):
+        return ErrorResponse.handle_error("Error creating new turn", 400)
+
+    try:
+        if won_round or curr_turn_num == max_turns:
+            round.status = StatusEnum.COMPLETED
+            # Point calculation is based on amt of turns taken, and the winner of the game has the LEAST amt of points
+            # If the winner could not guess the code in turns allocated, they get a penalty of 5 points added
+            if won_round:
+                round.points = curr_turn_num
+            else:
+                round.points = curr_turn_num + 5
+                if game.is_multiplayer == False:
+                    game.winner = user
+                    game.status = StatusEnum.COMPLETED
+                # TODO: handle multiplayer logic, single player only has one round
+        db.session.add(new_turn)
+        db.session.commit()
+    except (SQLAlchemyError, ValueError) as e:
+        db.session.rollback()
+        logging.error(f"Error creating game: {str(e)}")
+        return ErrorResponse.handle_error(
+            "Creating new turn failed. Please check the provided data.",
+            500,
+        )
+
     return (
         jsonify(
             {
@@ -140,6 +161,6 @@ def get_secret_code(round_id):
         user.id == round.code_breaker_id and round.status == StatusEnum.COMPLETED
     ) or user.id != round.code_breaker_id:
         return jsonify({"secret_code": secret_code}), 200
-    return ErrorResponse.not_authorized(
-        "Round is still in progress, cannot view secret code."
+    return ErrorResponse.handle_error(
+        "Round is still in progress, cannot view secret code.", 401
     )

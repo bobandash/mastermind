@@ -2,6 +2,8 @@ from functools import wraps
 from models.models import User, Game, Round
 from flask import session, jsonify, request
 from util.json_errors import ErrorResponse
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 
 # Checks if session is valid and passes the user down as a request
@@ -10,11 +12,14 @@ def session_required(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
         user_id = session.get("user_id")
-        if not user_id:
-            return ErrorResponse.not_authorized("Unauthorized access.")
-        user = User.query.get(user_id)
+        try:
+            user = User.query.get(user_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching user: {str(e)}")
+            return ErrorResponse.handle_error("User was not able to be fetched.", 503)
+
         if not user:
-            return ErrorResponse.not_authorized("Unauthorized access.")
+            return ErrorResponse.handle_error("Unauthorized access.", 401)
         request.user = user
         return fn(*args, **kwargs)
 
@@ -27,11 +32,16 @@ def check_user_in_game(fn):
     def decorator(*args, **kwargs):
         user = request.user
         game_id = kwargs.get("game_id")
-        game = Game.query.get(game_id)
+        try:
+            game = Game.query.get(game_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching game: {str(e)}")
+            return ErrorResponse.handle_error("Game was not able to be fetched.", 503)
+
         if not game:
-            return ErrorResponse.bad_request("Game id is not valid.")
+            return ErrorResponse.handle_error("Game id is not valid.", 400)
         if user not in game.players:
-            return ErrorResponse.not_authorized("User is not a player in the game.")
+            return ErrorResponse.handle_error("User is not a player in the game.", 401)
         request.game = game
         return fn(*args, **kwargs)
 
@@ -44,11 +54,15 @@ def check_user_is_codebreaker(fn):
     def decorator(*args, **kwargs):
         user = request.user
         round_id = kwargs.get("round_id")
-        round = Round.query.get(round_id)
+        try:
+            round = Round.query.get(round_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching Round: {str(e)}")
+            return ErrorResponse.handle_error("Round was not able to be fetched.", 503)
         if not round:
-            return ErrorResponse.bad_request("Round id is not valid.")
+            return ErrorResponse.handle_error("Round id is not valid.", 404)
         if not user.id == round.code_breaker_id:
-            return ErrorResponse.not_authorized("User is not the codebreaker.")
+            return ErrorResponse.handle_error("User is not the codebreaker.", 401)
         request.round = round
         return fn(*args, **kwargs)
 
@@ -61,12 +75,17 @@ def check_user_in_round(fn):
     def decorator(*args, **kwargs):
         user = request.user
         round_id = kwargs.get("round_id")
-        round = Round.query.get(round_id)
+        try:
+            round = Round.query.get(round_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching Round: {str(e)}")
+            return ErrorResponse.handle_error("Round was not able to be fetched.", 503)
+
         if not round:
-            return ErrorResponse.bad_request("Round id is not valid.")
+            return ErrorResponse.handle_error("Round id is not valid.", 404)
         player_ids_in_game = [player.id for player in round.game.players]
         if not user.id in player_ids_in_game:
-            return ErrorResponse.not_authorized("User is not a player in the game.")
+            return ErrorResponse.handle_error("User is not a player in the game.", 401)
         request.round = round
         return fn(*args, **kwargs)
 
@@ -79,9 +98,13 @@ def check_round_is_valid(fn):
     def decorator(*args, **kwargs):
         user = request.user
         round_id = kwargs.get("round_id")
-        round = Round.query.get(round_id)
+        try:
+            round = Round.query.get(round_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching Round: {str(e)}")
+            return ErrorResponse.handle_error("Round was not able to be fetched.", 503)
         if not round:
-            return ErrorResponse.bad_request("Round id is not valid.")
+            return ErrorResponse.handle_error("Round id is not valid.", 404)
         request.round = round
         return fn(*args, **kwargs)
 

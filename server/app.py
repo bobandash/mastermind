@@ -27,15 +27,7 @@ def create_app():
     def handle_exception(e):
         error_message = str(e)
         status_code = getattr(e, "code", 500)
-        if status_code == 400:
-            return ErrorResponse.bad_request(error_message)
-        elif status_code == 401:
-            return ErrorResponse.not_authorized(error_message)
-        elif status_code == 404:
-            return ErrorResponse.not_found(error_message)
-        elif status_code == 500:
-            return ErrorResponse.server_error(error_message)
-        return ErrorResponse.unexpected_error(error_message, status_code)
+        return ErrorResponse.handle_error(error_message, status_code)
 
     app.register_blueprint(auth_bp.auth_bp, url_prefix="/v1.0/auth")
     app.register_blueprint(user_bp.user_bp, url_prefix="/v1.0/users")
