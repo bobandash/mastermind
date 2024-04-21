@@ -30,6 +30,9 @@ class User(db.Model):
     rounds = db.relationship(
         "Round", backref="code_breaker"
     )  # stores rounds that the user is the code-breaker
+    waiting_room_id = db.Column(
+        db.Integer, db.ForeignKey("waiting_room.id")
+    )  # Users can only be in one waiting room at a time
 
     @validates("email")
     def validate_email(self, key, value):
@@ -173,3 +176,10 @@ class Turn(db.Model):
         if num_pegs > num_holes:
             raise ValueError("White and black pegs exceed number of holes.")
         return value
+
+
+# Waiting room for players
+class WaitingRoom(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.Integer, unique=True)
+    players = db.relationship("User", backref="waiting_room")
