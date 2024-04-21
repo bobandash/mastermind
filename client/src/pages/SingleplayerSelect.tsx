@@ -31,8 +31,10 @@ const SingleplayerSelect = () => {
         num_colors: numColors,
       });
       const gameId = gameResponse.data.id;
-      const roundResponse = await authAxios.post(`/api/games/${gameId}/rounds`);
-      const roundId = roundResponse.data.round_data.id;
+      const roundResponse = await authAxios.post(
+        `/api/v1.0/games/${gameId}/rounds`
+      );
+      const roundId = roundResponse.data.id;
       navigate(`/games/${gameId}/rounds/${roundId}`);
     } catch {
       console.error("Failed to create game.");
@@ -57,7 +59,7 @@ const SingleplayerSelect = () => {
 
   const numColorsRange = useMemo(() => {
     const res = [];
-    for (let i = 8; i <= 20; i++) {
+    for (let i = 10; i <= 20; i++) {
       res.push(i);
     }
     return res;
