@@ -1,7 +1,7 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import authAxios from "../httpClient";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Loading from "./Loading";
 import logo from "../assets/logo.jpg";
 import axios from "axios";
@@ -11,6 +11,12 @@ const status = {
   IN_PROGRESS: "IN_PROGRESS",
   COMPLETED: "COMPLETED",
   TERMINATED: "TERMINATED",
+};
+
+const DIFFICULTIES = {
+  NORMAL: "NORMAL",
+  HARD: "HARD",
+  CUSTOM: "CUSTOM",
 };
 
 interface GameRowProps {
@@ -137,6 +143,7 @@ const EmptyGameRow: FC<EmptyGameRowProps> = ({ numHoles }) => {
 };
 
 const Game = () => {
+  const navigate = useNavigate();
   const [roundInfo, setRoundInfo] = useState<RoundInfoState>({
     status: status.IN_PROGRESS,
     turnHistory: [],
@@ -152,6 +159,7 @@ const Game = () => {
     numColors: 0,
     numHoles: 0,
     isMultiplayer: false,
+    mode: DIFFICULTIES.HARD,
   });
   const [, setGameStatus] = useState({
     rounds: [],
@@ -161,6 +169,27 @@ const Game = () => {
   const { gameId, roundId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorProps>({ code: null, message: null });
+
+  async function createSinglePlayerGame() {
+    try {
+      const { mode, maxTurns, numHoles, numColors } = gameSettings;
+      const gameResponse = await authAxios.post("/api/v1.0/games", {
+        is_multiplayer: false,
+        difficulty: mode,
+        max_turns: maxTurns,
+        num_holes: numHoles,
+        num_colors: numColors,
+      });
+      const gameId = gameResponse.data.id;
+      const roundResponse = await authAxios.post(
+        `/api/v1.0/games/${gameId}/rounds`
+      );
+      const roundId = roundResponse.data.id;
+      navigate(`/games/${gameId}/rounds/${roundId}`);
+    } catch {
+      console.error("Failed to create game.");
+    }
+  }
 
   useEffect(() => {
     async function getGameInfo() {
@@ -182,6 +211,7 @@ const Game = () => {
         setGameSettings((prevSettings) => ({
           ...prevSettings,
           maxTurns: difficulty.max_turns,
+          mode: difficulty.mode,
           numColors: difficulty.num_colors,
           numHoles: difficulty.num_holes,
           isMultiplayer: is_multiplayer,
@@ -253,9 +283,10 @@ const Game = () => {
       const data = response.data;
       const numTurnsRemaining = gameSettings.maxTurns - data.turn_num;
       const { message, won_round } = data.result;
-
       let secretCode = null;
-      if (won_round) {
+      const isRoundOver = won_round || numTurnsRemaining === 0;
+
+      if (isRoundOver) {
         const response = await authAxios.get(
           `/api/v1.0/rounds/${roundId}/secret-code`
         );
@@ -266,7 +297,7 @@ const Game = () => {
       setRoundInfo((prevRoundInfo) => ({
         ...prevRoundInfo,
         feedback: `${message}`,
-        status: won_round ? status.COMPLETED : status.IN_PROGRESS,
+        status: isRoundOver ? status.COMPLETED : status.IN_PROGRESS,
         turnHistory: [...prevRoundInfo.turnHistory, data],
         numTurnsRemaining: numTurnsRemaining,
         numTurnsUsed: data.turn_num,
@@ -286,6 +317,7 @@ const Game = () => {
     roundInfo.status !== status.IN_PROGRESS ||
     roundInfo.numTurnsRemaining === 0 ||
     currChoice.length !== gameSettings.numHoles;
+
   if (isLoading) {
     <Loading />;
   }
@@ -401,6 +433,24 @@ const Game = () => {
               </div>
             </div>
           </div>
+          {roundInfo.status === status.COMPLETED && (
+            <div className="flex flex-row gap-4 justify-around bg-yellow-200 py-3">
+              <button
+                className="bg-white p-3 border-black border-2"
+                onClick={() => {
+                  navigate("/");
+                }}
+              >
+                Back Home
+              </button>
+              <button
+                className="bg-white p-3 border-black border-2"
+                onClick={createSinglePlayerGame}
+              >
+                New Game
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -21,7 +21,7 @@ def session_required(fn):
     return decorator
 
 
-# !👇 All decorators underneath depend on session_required being called before
+# !👇 Depends on session_required decorator being called before
 def check_user_in_game(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
@@ -38,8 +38,7 @@ def check_user_in_game(fn):
     return decorator
 
 
-# depends on session_required to run before
-# Checks whether or not the user is the codebreaker in the specific round
+# !👇 Depends on session_required decorator being called before
 def check_user_is_codebreaker(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
@@ -56,6 +55,7 @@ def check_user_is_codebreaker(fn):
     return decorator
 
 
+# !👇 Depends on session_required decorator being called before
 def check_user_in_round(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
@@ -65,7 +65,7 @@ def check_user_in_round(fn):
         if not round:
             return ErrorResponse.bad_request("Round id is not valid.")
         player_ids_in_game = [player.id for player in round.game.players]
-        if not user.id == player_ids_in_game:
+        if not user.id in player_ids_in_game:
             return ErrorResponse.not_authorized("User is not a player in the game.")
         request.round = round
         return fn(*args, **kwargs)
@@ -73,6 +73,7 @@ def check_user_in_round(fn):
     return decorator
 
 
+# !👇 Depends on session_required decorator being called before
 def check_round_is_valid(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):

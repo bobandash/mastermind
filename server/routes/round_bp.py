@@ -50,6 +50,7 @@ def get_round_details(round_id):
     response_data = {
         "id": round_id,
         "status": round.status.name,
+        "round_num": round.round_num,
         "turns_used": num_turns_used,
         "turns_remaining": max_turns - num_turns_used,
         "turns": turn_history,
@@ -103,11 +104,11 @@ def make_move(round_id):
         guess=guess_encoded,
         result=result_encoded,
     )
-    if result["won_round"] or curr_turn_num == max_turns:
+    if result["won_round"] == True or curr_turn_num == max_turns:
         round.status = StatusEnum.COMPLETED
 
     #! TODO: FOR SOME REASON, game's status does not update
-    if result["won_round"]:
+    if result["won_round"] == True:
         round.points = curr_turn_num
         # TODO: handle multiplayer logic in future, single player only has one round
         if game.is_multiplayer == False:
@@ -128,8 +129,17 @@ def make_move(round_id):
     )
 
 
-#! TODO: ADD VALIDATION FOR SECRET CODE
-# @round_bp.route('/<round_id>/secret-code')
-# @session_required
-# @check_user_in_round
-# def get_secret_code():
+@round_bp.route("/<round_id>/secret-code", methods=["GET"])
+@session_required
+@check_user_in_round
+def get_secret_code(round_id):
+    user = request.user
+    round = request.round
+    secret_code = json.loads(round.secret_code)
+    if (
+        user.id == round.code_breaker_id and round.status == StatusEnum.COMPLETED
+    ) or user.id != round.code_breaker_id:
+        return jsonify({"secret_code": secret_code}), 200
+    return ErrorResponse.not_authorized(
+        "Round is still in progress, cannot view secret code."
+    )
