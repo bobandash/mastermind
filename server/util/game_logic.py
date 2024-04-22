@@ -2,18 +2,7 @@ import json
 import requests
 
 
-def is_guess_proper_format(guess, secret_code, num_colors):
-    if len(secret_code) != len(guess):
-        return False
-    if not all([isinstance(g, int) for g in guess]):
-        return False
-    if max(guess) >= num_colors or min(guess) < 0:
-        return False
-    return True
-
-
-# TODO: refactor to be same function as is_guess_proper_format
-def is_secret_code_valid(secret_code, num_holes, num_colors):
+def is_code_valid(secret_code, num_holes, num_colors):
     if len(secret_code) != num_holes:
         return False
     if not all([isinstance(g, int) for g in secret_code]):

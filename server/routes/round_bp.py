@@ -4,14 +4,12 @@ from flask import session, jsonify, request
 from util.decorators import (
     session_required,
     check_user_is_codebreaker,
-    check_round_is_valid,
     check_user_in_round,
 )
 from util.enum import StatusEnum
 from util.game_logic import (
-    is_guess_proper_format,
+    is_code_valid,
     calculate_result,
-    is_secret_code_valid,
 )
 from util.json_errors import ErrorResponse
 import json
@@ -93,14 +91,15 @@ def make_move(round_id):
     data = request.get_json()
     guess = data.get("guess")
     curr_turn_num = len(round.turns) + 1
-    max_turns, num_colors = (
+    max_turns, num_colors, num_holes = (
         game.difficulty.max_turns,
         game.difficulty.num_colors,
+        game.difficulty.num_holes,
     )
 
     if not guess:
         return ErrorResponse.handle_error("Guess was not provided in payload.", 400)
-    elif not is_guess_proper_format(guess, secret_code, num_colors):
+    elif not is_code_valid(guess, num_holes, num_colors):
         return ErrorResponse.handle_error(
             "Guess was not provided in correct format.", 400
         )
@@ -128,22 +127,35 @@ def make_move(round_id):
 
     try:
         if won_round or curr_turn_num == max_turns:
+            is_last_round = len(game.rounds) == game.num_rounds
             round.status = StatusEnum.COMPLETED
+            if is_last_round:
+                game.status = StatusEnum.COMPLETED
             # Point calculation is based on amt of turns taken, and the winner of the game has the LEAST amt of points
             # If the winner could not guess the code in turns allocated, they get a penalty of 5 points added
             if won_round:
                 round.points = curr_turn_num
             else:
                 round.points = curr_turn_num + 5
-                if game.is_multiplayer == False:
-                    game.winner = user
-                    game.status = StatusEnum.COMPLETED
-                # TODO: handle multiplayer logic, single player only has one round
+            if game.is_multiplayer == False and won_round:
+                game.winner = user
+            elif game.is_multiplayer and is_last_round:
+                player_to_points = {player.id: 0 for player in game.players}
+                player_ids = list(player_to_points.keys())
+                if len(player_ids) != 2:
+                    raise ValueError("Multiplayer was not configured properly.")
+                for round in game.rounds:
+                    player_to_points[round.code_breaker_id] += round.points
+                if player_to_points[player_ids[0]] < player_to_points[player_ids[1]]:
+                    game.winner_id = player_ids[0]
+                elif player_to_points[player_ids[1]] < player_to_points[player_ids[0]]:
+                    game.winner_id = player_ids[1]
+
         db.session.add(new_turn)
         db.session.commit()
     except (SQLAlchemyError, ValueError) as e:
         db.session.rollback()
-        logging.error(f"Error creating game: {str(e)}")
+        logging.error(f"Error creating new turn: {str(e)}")
         return ErrorResponse.handle_error(
             "Creating new turn failed. Please check the provided data.",
             500,
@@ -179,7 +191,7 @@ def add_secret_code(round_id):
     if not secret_code:
         return ErrorResponse.handle_error("Secret code was not provided.", 400)
 
-    if not is_secret_code_valid(secret_code, num_holes, num_colors):
+    if not is_code_valid(secret_code, num_holes, num_colors):
         return ErrorResponse.handle_error("Secret code provided was invalid.", 400)
 
     if round.status != StatusEnum.NOT_STARTED:

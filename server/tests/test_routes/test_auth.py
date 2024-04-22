@@ -4,7 +4,6 @@ from models.models import User
 from util.decorators import session_required
 
 
-# TODO: Figure out how to pass request and test decorators
 class TestAuthRoute:
     def test_register_already_signed_in(self, create_app, create_db):
         mock_app = create_app

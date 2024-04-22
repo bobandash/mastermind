@@ -1,4 +1,4 @@
-## Set Up Project (TODO - Reorganize)
+## Please reference the root README for instructions on setting up the project
 
 1. python -m venv venv
 2. Change the interpreter to the python.exe file in the scripts folder of the venv
