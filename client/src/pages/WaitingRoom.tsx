@@ -25,7 +25,9 @@ const WaitingRoom = () => {
     maxTurns: 10,
     numHoles: 4,
     numColors: 8,
+    numRounds: 2,
   });
+  const [isHost, setIsHost] = useState(false);
   const [users, setUsers] = useState<userProps[]>([]);
   const [code, setCode] = useState("");
   const { roomId } = useParams();
@@ -58,7 +60,10 @@ const WaitingRoom = () => {
     async function getWaitingRoomInfo() {
       try {
         const response = await authAxios.get(`/api/v1.0/rooms/${roomId}`);
+        const userResponse = await authAxios.get("/api/v1.0/users/me");
         const data = response.data;
+        const userData = userResponse.data;
+        setIsHost(userData.is_host);
         setCode(data.code);
         setUsers(data.players);
         socket.emit("waiting_room", {
@@ -96,7 +101,7 @@ const WaitingRoom = () => {
 
   const maxTurnRange = useMemo(() => {
     const res = [];
-    for (let i = 8; i <= 20; i++) {
+    for (let i = 10; i <= 20; i++) {
       res.push(i);
     }
     return res;
@@ -118,7 +123,14 @@ const WaitingRoom = () => {
     return res;
   }, []);
 
-  const handleSettingsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const numRoundsRange = [2, 4, 6, 8];
+  const handleSettingsChange = async (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    if (!isHost) {
+      return;
+    }
+
     const { name, value } = e.target;
     let newSettings;
     if (name === "difficulty") {
@@ -144,7 +156,16 @@ const WaitingRoom = () => {
     } else {
       newSettings = { ...settings, [name]: Number(e.target.value) };
     }
+
     setSettings({ ...newSettings });
+    const response = await authAxios.patch(`/api/v1.0/rooms/${roomId}`, {
+      difficulty: newSettings.difficulty,
+      max_turns: newSettings.maxTurns,
+      num_holes: newSettings.numHoles,
+      num_colors: newSettings.numColors,
+      rounds: newSettings.numRounds,
+    });
+    console.log(response);
     socket.emit("change_game_settings", {
       room: waitingRoomId,
       settings: newSettings,
@@ -193,6 +214,7 @@ const WaitingRoom = () => {
               className="border-2 border-black text-3xl pl-1"
               value={settings.difficulty}
               onChange={handleSettingsChange}
+              disabled={!isHost}
             >
               <option value={DIFFICULTIES.NORMAL}>{DIFFICULTIES.NORMAL}</option>
               <option value={DIFFICULTIES.HARD}>{DIFFICULTIES.HARD}</option>
@@ -208,7 +230,7 @@ const WaitingRoom = () => {
               className="border-2 border-black text-3xl pl-1"
               value={settings.maxTurns}
               onChange={handleSettingsChange}
-              disabled={settings.difficulty !== DIFFICULTIES.CUSTOM}
+              disabled={!isHost || settings.difficulty !== DIFFICULTIES.CUSTOM}
             >
               {maxTurnRange.map((value, index) => (
                 <option value={value} key={index}>
@@ -226,7 +248,7 @@ const WaitingRoom = () => {
               className="border-2 border-black text-3xl pl-1"
               value={settings.numHoles}
               onChange={handleSettingsChange}
-              disabled={settings.difficulty !== DIFFICULTIES.CUSTOM}
+              disabled={!isHost || settings.difficulty !== DIFFICULTIES.CUSTOM}
             >
               {numHolesRange.map((value, index) => (
                 <option value={value} key={index}>
@@ -244,9 +266,27 @@ const WaitingRoom = () => {
               className="border-2 border-black text-3xl pl-1"
               value={settings.numColors}
               onChange={handleSettingsChange}
-              disabled={settings.difficulty !== DIFFICULTIES.CUSTOM}
+              disabled={!isHost || settings.difficulty !== DIFFICULTIES.CUSTOM}
             >
               {numColorsRange.map((value, index) => (
+                <option value={value} key={index}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="difficulty" className="text-2xl font-bold">
+              Number of Rounds:
+            </label>
+            <select
+              name="numRounds"
+              className="border-2 border-black text-3xl pl-1"
+              value={settings.numRounds}
+              onChange={handleSettingsChange}
+              disabled={!isHost}
+            >
+              {numRoundsRange.map((value, index) => (
                 <option value={value} key={index}>
                   {value}
                 </option>

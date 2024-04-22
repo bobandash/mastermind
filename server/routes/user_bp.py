@@ -16,6 +16,7 @@ def get_user_details():
         "id": user.id,
         "username": user.username if user.username else "",
         "email": user.email if user.email else "",
+        "is_host": user.is_host,
     }
     return jsonify(res_data), 200
 

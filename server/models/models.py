@@ -50,6 +50,7 @@ class Difficulty(db.Model):
     num_holes = db.Column(db.Integer, nullable=False)
     num_colors = db.Column(db.Integer, nullable=False)
     games = db.relationship("Game", backref="difficulty")
+    waitingRooms = db.relationship("WaitingRoom", backref="difficulty")
 
     @validates("max_turns", "num_holes", "num_colors")
     def validate_turns(self, key, value):
@@ -183,4 +184,11 @@ class Turn(db.Model):
 class WaitingRoom(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(6), unique=True)
+    num_rounds = db.Column(db.Integer)
+    difficulty_id = db.Column(db.Integer, db.ForeignKey("difficulty.id"))
     players = db.relationship("User", backref="waiting_room")
+
+    @validates("rounds")
+    def validate_rounds(self, key, value):
+        if value not in [2, 4, 6, 8]:
+            return ValueError("Number of rounds is not valid.")

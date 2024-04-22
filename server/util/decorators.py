@@ -1,5 +1,5 @@
 from functools import wraps
-from models.models import User, Game, Round
+from models.models import User, Game, Round, WaitingRoom
 from flask import session, jsonify, request
 from util.json_errors import ErrorResponse
 from sqlalchemy.exc import SQLAlchemyError
@@ -96,7 +96,6 @@ def check_user_in_round(fn):
 def check_round_is_valid(fn):
     @wraps(fn)
     def decorator(*args, **kwargs):
-        user = request.user
         round_id = kwargs.get("round_id")
         try:
             round = Round.query.get(round_id)
@@ -106,6 +105,28 @@ def check_round_is_valid(fn):
         if not round:
             return ErrorResponse.handle_error("Round id is not valid.", 404)
         request.round = round
+        return fn(*args, **kwargs)
+
+    return decorator
+
+
+def check_user_in_waiting_room(fn):
+    @wraps(fn)
+    def decorator(*args, **kwargs):
+        user = request.user
+        room_id = kwargs.get("room_id")
+        try:
+            waiting_room = WaitingRoom.query.get(room_id)
+        except SQLAlchemyError as e:
+            logging.error(f"Error fetching Round: {str(e)}")
+            return ErrorResponse.handle_error("Round was not able to be fetched.", 503)
+        if not waiting_room:
+            return ErrorResponse.handle_error("Waiting room does not exist", 404)
+
+        player_ids = [player.id for player in waiting_room.players]
+        if user.id not in player_ids:
+            return ErrorResponse.handle_error("User is not a part of waiting room", 401)
+        request.waiting_room = waiting_room
         return fn(*args, **kwargs)
 
     return decorator

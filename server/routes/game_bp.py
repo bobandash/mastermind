@@ -77,6 +77,7 @@ def create_new_game():
                 "Game creation failed. Please check the provided data.",
                 500,
             )
+
     # TODO: handle multiplayer when creating game
     return ErrorResponse.handle_error(
         "Multiplayer mode has not been created yet.",
