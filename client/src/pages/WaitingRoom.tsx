@@ -89,20 +89,23 @@ const WaitingRoom = () => {
   async function createMultiplayerGame(e: React.FormEvent<HTMLFormElement>) {
     try {
       e.preventDefault();
-      const { difficulty, maxTurns, numHoles, numColors } = settings;
+      const { difficulty, maxTurns, numHoles, numColors, numRounds } = settings;
       const gameResponse = await authAxios.post("/api/v1.0/games", {
-        is_multiplayer: false,
+        is_multiplayer: true,
         difficulty: difficulty,
         max_turns: maxTurns,
         num_holes: numHoles,
         num_colors: numColors,
+        num_rounds: numRounds,
+        room_id: Number(roomId),
       });
-      const gameId = gameResponse.data.id;
-      const roundResponse = await authAxios.post(
-        `/api/v1.0/games/${gameId}/rounds`
-      );
-      const roundId = roundResponse.data.id;
-      navigate(`/games/${gameId}/rounds/${roundId}`);
+      const gameData = gameResponse.data;
+      console.log(gameData);
+      // const roundResponse = await authAxios.post(
+      //   `/api/v1.0/games/${gameId}/rounds`
+      // );
+      // const roundId = roundResponse.data.id;
+      // navigate(`/games/${gameId}/rounds/${roundId}`);
     } catch {
       console.error("Failed to create game.");
     }

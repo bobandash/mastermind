@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.models import Game, Difficulty, Round, db
+from models.models import Game, Difficulty, Round, db, WaitingRoom
 from util.decorators import session_required, check_user_in_game
 from util.enum import DifficultyEnum, StatusEnum
 from util.game_logic import get_random_secret_code
@@ -21,6 +21,7 @@ def create_new_game():
     user = request.user
     data = request.get_json()
     difficulty_names = [member.name for member in DifficultyEnum]
+    # all fields needed for single player
     is_multiplayer, difficulty, max_turns, num_holes, num_colors = (
         data.get("is_multiplayer"),
         data.get("difficulty"),
@@ -28,11 +29,17 @@ def create_new_game():
         data.get("num_holes"),
         data.get("num_colors"),
     )
+    # fields specifically needed for multiplayer
+    num_rounds, room_id = data.get("num_rounds"), data.get("room_id")
 
     if (
         not all(isinstance(value, int) for value in [max_turns, num_holes, num_colors])
         or difficulty not in difficulty_names
         or not isinstance(is_multiplayer, bool)
+        or (
+            is_multiplayer == True
+            and not all(isinstance(value, int) for value in [num_rounds, room_id])
+        )
     ):
         return ErrorResponse.handle_error(
             "A required field is missing or in an incorrect format.", 400
@@ -58,6 +65,7 @@ def create_new_game():
                 is_multiplayer=is_multiplayer,
                 difficulty=curr_difficulty,
                 status=StatusEnum.NOT_STARTED.name,
+                num_rounds=1,
             )
             new_game.players.append(user)
             db.session.add(new_game)
@@ -68,6 +76,7 @@ def create_new_game():
                 "difficulty": curr_difficulty.mode.name,
                 "players": [player.id for player in new_game.players],
                 "created_at": new_game.created_at,
+                "num_rounds": new_game.num_rounds,
             }
             return jsonify(game_data), 201
         except (SQLAlchemyError, ValueError) as e:
@@ -77,12 +86,55 @@ def create_new_game():
                 "Game creation failed. Please check the provided data.",
                 500,
             )
+    else:
+        try:
+            waiting_room = WaitingRoom.query.get(room_id)
+        except:
+            return ErrorResponse.handle_error("Error fetching waiting room", 503)
 
-    # TODO: handle multiplayer when creating game
-    return ErrorResponse.handle_error(
-        "Multiplayer mode has not been created yet.",
-        400,
-    )
+        if not waiting_room:
+            return ErrorResponse.handle_error("Waiting room not found", 404)
+
+        if user.waiting_room_id != room_id:
+            return ErrorResponse.handle_error("User is not inside waiting room", 400)
+
+        if not user.is_host:
+            return ErrorResponse.handle_error(
+                "User is unauthorized to start the game", 401
+            )
+
+        if len(waiting_room.players) < 2:
+            return ErrorResponse.handle_error(
+                "Not enough players to start the game", 400
+            )
+
+        try:
+            new_game = Game(
+                is_multiplayer=True,
+                difficulty=curr_difficulty,
+                status=StatusEnum.NOT_STARTED.name,
+                num_rounds=num_rounds,
+            )
+            for player in waiting_room.players:
+                new_game.players.append(player)
+            db.session.add(new_game)
+            db.session.commit()
+            game_data = {
+                "id": new_game.id,
+                "is_multiplayer": is_multiplayer,
+                "difficulty": curr_difficulty.mode.name,
+                "players": [player.id for player in new_game.players],
+                "created_at": new_game.created_at,
+                "num_rounds": new_game.num_rounds,
+            }
+            return jsonify(game_data), 201
+        except (ValueError, SQLAlchemyError) as e:
+            db.session.rollback()
+            logging.error(f"Error creating game: {str(e)}")
+            return ErrorResponse.handle_error(
+                "Game creation failed. Please check the provided data.",
+                500,
+            )
 
 
 # TODO: Code breaker should be allowed to view secret_code for ongoing round
@@ -167,7 +219,7 @@ def create_game_rounds(game_id):
             db.session.commit()
         except (SQLAlchemyError, ValueError) as e:
             db.session.rollback()
-            logging.error(f"Error creating game: {str(e)}")
+            logging.error(f"Error creating round: {str(e)}")
             return ErrorResponse.handle_error(
                 "Round creation failed. Please check the provided data.",
                 500,

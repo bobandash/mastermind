@@ -98,6 +98,9 @@ def join_room():
         return ErrorResponse.handle_error("Room is full.", 403)
 
     try:
+        user.is_host = (
+            False  # the person joining a pre-existing waiting room cannot be a host
+        )
         waiting_room.players.append(user)
         db.session.commit()
         return jsonify(
