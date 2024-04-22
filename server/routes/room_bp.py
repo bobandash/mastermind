@@ -97,6 +97,24 @@ def join_room():
     if len(waiting_room.players) >= 2:
         return ErrorResponse.handle_error("Room is full.", 403)
 
+    # User joins a waiting room that they already are in
+    player_ids_in_room = [player.id for player in waiting_room.players]
+    if user.id in player_ids_in_room:
+        return jsonify(
+            {
+                "id": waiting_room.id,
+                "code": waiting_room.code,
+                "players": [
+                    {
+                        "id": player.id,
+                        "username": player.username,
+                        "is_host": player.is_host,
+                    }
+                    for player in waiting_room.players
+                ],
+            }
+        )
+
     try:
         user.is_host = (
             False  # the person joining a pre-existing waiting room cannot be a host
