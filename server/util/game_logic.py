@@ -12,6 +12,17 @@ def is_guess_proper_format(guess, secret_code, num_colors):
     return True
 
 
+# TODO: refactor to be same function as is_guess_proper_format
+def is_secret_code_valid(secret_code, num_holes, num_colors):
+    if len(secret_code) != num_holes:
+        return False
+    if not all([isinstance(g, int) for g in secret_code]):
+        return False
+    if max(secret_code) >= num_colors or min(secret_code) < 0:
+        return False
+    return True
+
+
 def calculate_result(guess, secret_code):
     black_pegs = 0
     white_pegs = 0

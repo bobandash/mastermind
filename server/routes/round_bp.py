@@ -8,7 +8,11 @@ from util.decorators import (
     check_user_in_round,
 )
 from util.enum import StatusEnum
-from util.game_logic import is_guess_proper_format, calculate_result
+from util.game_logic import (
+    is_guess_proper_format,
+    calculate_result,
+    is_secret_code_valid,
+)
 from util.json_errors import ErrorResponse
 import json
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,8 +23,9 @@ round_bp = Blueprint("round_bp", __name__)
 
 @round_bp.route("/<round_id>", methods=["GET"])
 @session_required
-@check_round_is_valid
+@check_user_in_round
 def get_round_details(round_id):
+    user = request.user
     round = request.round
     game = round.game
 
@@ -49,21 +54,28 @@ def get_round_details(round_id):
         for turn in all_turns
     ]
 
+    # Hide the secret code if user is not the code breaker and
+    # Round is still in progress
     secret_code = None
-    if round.status == StatusEnum.COMPLETED:
+    is_code_breaker = round.code_breaker_id == user.id
+    if round.secret_code and (
+        not is_code_breaker or round.status == StatusEnum.COMPLETED
+    ):
         secret_code = json.loads(round.secret_code)
-    response_data = {
-        "id": round_id,
-        "status": round.status.name,
-        "round_num": round.round_num,
-        "turns_used": num_turns_used,
-        "turns_remaining": max_turns - num_turns_used,
-        "turns": turn_history,
-        "secret_code": secret_code,
-    }
 
     return (
-        jsonify(response_data),
+        jsonify(
+            {
+                "id": round_id,
+                "status": round.status.name,
+                "round_num": round.round_num,
+                "turns_used": num_turns_used,
+                "turns_remaining": max_turns - num_turns_used,
+                "turns": turn_history,
+                "secret_code": secret_code,
+                "code_breaker_id": round.code_breaker_id,
+            }
+        ),
         200,
     )
 
@@ -148,6 +160,53 @@ def make_move(round_id):
         ),
         201,
     )
+
+
+# Allows code maker to add secret code and change game status to in progress
+@round_bp.route("/<round_id>/secret-code", methods=["PATCH"])
+@session_required
+@check_user_in_round
+def add_secret_code(round_id):
+    if request.content_type != "application/json":
+        return ErrorResponse.handle_error("Secret code not provided.", 415)
+    user = request.user
+    round = request.round
+    difficulty = round.game.difficulty
+    num_holes, num_colors = difficulty.num_holes, difficulty.num_colors
+
+    data = request.get_json()
+    secret_code = data.get("secret_code")
+    if not secret_code:
+        return ErrorResponse.handle_error("Secret code was not provided.", 400)
+
+    if not is_secret_code_valid(secret_code, num_holes, num_colors):
+        return ErrorResponse.handle_error("Secret code provided was invalid.", 400)
+
+    if round.status != StatusEnum.NOT_STARTED:
+        return ErrorResponse.handle_error(
+            "Cannot change secret code after a game already started.", 401
+        )
+
+    is_user_code_maker = user.id != round.code_breaker
+    if is_user_code_maker and round.status == StatusEnum.NOT_STARTED:
+        try:
+            round.status = StatusEnum.IN_PROGRESS
+            round.secret_code = json.dumps(secret_code)
+            db.session.commit()
+            return (
+                jsonify({"message": "Secret code has been successfully updated."}),
+                200,
+            )
+        except (SQLAlchemyError, ValueError) as e:
+            db.session.rollback()
+            logging.error(f"Error creating game: {str(e)}")
+            return ErrorResponse.handle_error(
+                "Creating new turn failed. Please check the provided data.",
+                500,
+            )
+
+    # case user is not code maker
+    return ErrorResponse.handle_error("Unauthorized access.", 401)
 
 
 @round_bp.route("/<round_id>/secret-code", methods=["GET"])

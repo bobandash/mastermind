@@ -165,8 +165,11 @@ def get_game_details(game_id):
                     "points": round.points,
                     "secret_code": (
                         json.loads(round.secret_code)
-                        if round.status == StatusEnum.COMPLETED
-                        or (user.id != round.code_breaker_id)
+                        if round.secret_code
+                        and (
+                            round.status == StatusEnum.COMPLETED
+                            or (user.id != round.code_breaker_id)
+                        )
                         # Rounds can only have two players max, so if the user isn't the code breaker, they are the code maker
                         else None
                     ),

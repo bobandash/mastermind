@@ -6,6 +6,7 @@ import Loading from "./Loading";
 import logo from "../assets/logo.jpg";
 import axios from "axios";
 import ErrorPage from "./ErrorPage";
+import { socket } from "../socket";
 
 //! TODO: If have time, combine the react pages for singleplayer and multiplayer, not too important though
 
@@ -145,8 +146,41 @@ const EmptyGameRow: FC<EmptyGameRowProps> = ({ numHoles }) => {
   );
 };
 
+type UserInfoProps = {
+  id: string;
+  isCodeBreaker: boolean;
+};
+
 const MultiplayerGame = () => {
   const navigate = useNavigate();
+  const { gameId, roundId } = useParams();
+  const socketRoomId = `game_${gameId}_round_${roundId}`;
+
+  // ALl socket logic
+  socket.on("connect", () => {
+    console.log("Connected to server");
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log(reason);
+  });
+
+  socket.on("start_round", (data) => {
+    const { status } = data;
+    setRoundInfo((prevRoundInfo) => ({
+      ...prevRoundInfo,
+      status: status,
+    }));
+  });
+
+  socket.on("new_move_info", (data) => {
+    const { round_info } = data;
+    setRoundInfo((prevRoundInfo) => ({
+      ...prevRoundInfo,
+      ...round_info,
+    }));
+  });
+
   const [roundInfo, setRoundInfo] = useState<RoundInfoState>({
     status: status.IN_PROGRESS,
     turnHistory: [],
@@ -164,35 +198,21 @@ const MultiplayerGame = () => {
     isMultiplayer: false,
     mode: DIFFICULTIES.HARD,
   });
+  const [userInfo, setUserInfo] = useState<UserInfoProps>({
+    id: "",
+    isCodeBreaker: false, // if false, that means user is code maker
+  });
   const [, setGameStatus] = useState({
     rounds: [],
     status: status.NOT_STARTED,
-  }); // TODO: need to use for multiplayer
+  });
   const [currChoice, setCurrChoice] = useState<number[]>([]);
-  const { gameId, roundId } = useParams();
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorProps>({ code: null, message: null });
-
-  async function createSinglePlayerGame() {
-    try {
-      const { mode, maxTurns, numHoles, numColors } = gameSettings;
-      const gameResponse = await authAxios.post("/api/v1.0/games", {
-        is_multiplayer: false,
-        difficulty: mode,
-        max_turns: maxTurns,
-        num_holes: numHoles,
-        num_colors: numColors,
-      });
-      const gameId = gameResponse.data.id;
-      const roundResponse = await authAxios.post(
-        `/api/v1.0/games/${gameId}/rounds`
-      );
-      const roundId = roundResponse.data.id;
-      navigate(`/games/${gameId}/rounds/${roundId}`);
-    } catch {
-      console.error("Failed to create game.");
-    }
-  }
+  const [currSecretCodeSelection, setCurrSecretCodeSelection] = useState<
+    number[]
+  >([]);
 
   useEffect(() => {
     async function getGameInfo() {
@@ -201,11 +221,22 @@ const MultiplayerGame = () => {
           params: { game_id: gameId },
         });
         const gameRes = await authAxios.get(`/api/v1.0/games/${gameId}`);
+        const userRes = await authAxios.get("/api/v1.0/users/me");
+        const userResData = userRes.data;
+        const { code_breaker_id } = roundRes.data;
+        const isCodeBreaker = code_breaker_id === userRes.data.id;
+        setUserInfo({
+          id: userResData.id,
+          isCodeBreaker: isCodeBreaker,
+        });
         const roundData = roundRes.data;
         const { difficulty, rounds, status, is_multiplayer } = gameRes.data;
-        const feedback =
+        let feedback =
           roundData?.turns[roundData.turns.length - 1]?.result?.message ??
           "Make your move.";
+        if (!isCodeBreaker) {
+          feedback = "Waiting for player to make their move";
+        }
         setGameStatus((prevSettings) => ({
           ...prevSettings,
           rounds: rounds,
@@ -228,7 +259,9 @@ const MultiplayerGame = () => {
           numTurnsUsed: roundData.turns_used,
           feedback: feedback,
         }));
-
+        socket.emit("join_multiplayer_round", {
+          room: socketRoomId,
+        });
         setIsLoading(false);
       } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -245,7 +278,7 @@ const MultiplayerGame = () => {
       }
     }
     getGameInfo();
-  }, [roundId, gameId]);
+  }, [roundId, gameId, socketRoomId]);
 
   // Choices start starts at 0
   const colorOptions = useMemo(() => {
@@ -274,6 +307,35 @@ const MultiplayerGame = () => {
     setCurrChoice([]);
   }
 
+  function handleClearSecretCodeSelection() {
+    setCurrSecretCodeSelection([]);
+  }
+
+  function handleSecretCodeOptionClick(number: number) {
+    setCurrSecretCodeSelection([...currSecretCodeSelection, number]);
+  }
+
+  async function handleAddSecretCode() {
+    try {
+      await authAxios.patch(`/api/v1.0/rounds/${roundId}/secret-code`, {
+        secret_code: currSecretCodeSelection,
+      });
+      const inProgress = status.IN_PROGRESS;
+      setRoundInfo((prevRoundInfo) => ({
+        ...prevRoundInfo,
+        status: inProgress,
+        secretCode: currSecretCodeSelection,
+        feedback: "Waiting for player to make their move.",
+      }));
+      socket.emit("add_secret_code", {
+        room: socketRoomId,
+        status: inProgress,
+      });
+    } catch {
+      console.error("Could not add secret code");
+    }
+  }
+
   async function handleMakeMove(e: React.MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     try {
@@ -297,15 +359,22 @@ const MultiplayerGame = () => {
         secretCode = data.secret_code;
       }
       setCurrChoice([]);
-      setRoundInfo((prevRoundInfo) => ({
-        ...prevRoundInfo,
+      const newRoundInfo = {
         feedback: `${message}`,
         status: isRoundOver ? status.COMPLETED : status.IN_PROGRESS,
-        turnHistory: [...prevRoundInfo.turnHistory, data],
+        turnHistory: [...roundInfo.turnHistory, data],
         numTurnsRemaining: numTurnsRemaining,
         numTurnsUsed: data.turn_num,
+      };
+      setRoundInfo((prevRoundInfo) => ({
+        ...prevRoundInfo,
+        ...newRoundInfo,
         secretCode: secretCode,
       }));
+      socket.emit("make_move", {
+        room: socketRoomId,
+        round_info: newRoundInfo,
+      });
     } catch {
       console.error("Could not make move.");
     }
@@ -314,12 +383,17 @@ const MultiplayerGame = () => {
   const optionBtnDisabled =
     roundInfo.status !== status.IN_PROGRESS ||
     roundInfo.numTurnsRemaining === 0 ||
-    currChoice.length === gameSettings.numHoles;
+    currChoice.length === gameSettings.numHoles ||
+    !userInfo.isCodeBreaker;
+
+  const secretCodeOptionBtnDisabled =
+    currSecretCodeSelection.length === gameSettings.numHoles;
 
   const makeMoveBtnDisabled =
     roundInfo.status !== status.IN_PROGRESS ||
     roundInfo.numTurnsRemaining === 0 ||
-    currChoice.length !== gameSettings.numHoles;
+    currChoice.length !== gameSettings.numHoles ||
+    !userInfo.isCodeBreaker;
 
   if (isLoading) {
     <Loading />;
@@ -329,135 +403,211 @@ const MultiplayerGame = () => {
     return <ErrorPage code={error.code} message={error.message} />;
   }
 
-  if (!gameSettings.isMultiplayer) {
+  if (roundInfo.status === status.NOT_STARTED && userInfo.isCodeBreaker) {
     return (
-      <div className="pb-10 flex flex-col">
-        <Header />
-        <div className="w-11/12 max-w-[500px] mx-auto h-full flex-grow">
-          <img src={logo} alt="mastermind logo" className="my-3" />
-          <div className="bg-white border-2 border-black text-center">
-            {roundInfo.feedback}
-          </div>
-          {roundInfo.secretCode && (
-            <div className="bg-black border-2 border-black text-center py-3 flex flex-col gap-2">
-              <h2 className="font-bold text-center underline text-white">
-                Secret Code
-              </h2>
-              <div
-                className=" gap-2 gap-y-3 w-11/12 mx-auto"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: gridTemplateColumnsValue,
-                }}
-              >
-                {roundInfo.secretCode.map((value, index) => (
-                  <div
-                    className="bg-white rounded-full w-full aspect-square mx-auto relative max-w-[40px]"
-                    key={index}
-                  >
-                    <p className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2">
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="bg-[#d18b5f] py-3 flex flex-col gap-2">
-            <h2 className="font-bold text-center underline">Game History</h2>
-            {emptyRowsArr.map((_, index) => (
-              <EmptyGameRow key={index} numHoles={gameSettings.numHoles} />
-            ))}
-            {roundInfo.turnHistory
-              .slice()
-              .reverse()
-              .map((turn, index) => (
-                <GameRow key={index} data={turn} />
-              ))}
-          </div>
-          <div className="bg-[#d8cfc9]">
-            <div className="w-11/12 mx-auto py-3 flex flex-col gap-2">
-              <h2 className="font-bold text-center underline">
-                Current Selection
-              </h2>
-              <div
-                className="w-full gap-2 gap-y-3"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: gridTemplateColumnsValue,
-                }}
-              >
-                {possibleHoles.map((_value, index) => (
-                  <div
-                    className="bg-white rounded-full w-full aspect-square mx-auto relative max-w-[40px]"
-                    key={index}
-                  >
-                    <p className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2">
-                      {currChoice[index] ?? ""}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-4 justify-center">
-                <button
-                  className="border-2 border-black px-2 bg-white rounded-sm hover:bg-gray-200 transition-all"
-                  onClick={handleClear}
+      <div className="w-full min-h-[100vh] flex items-center justify-center">
+        <h1 className="font-bold text-4xl text-center">
+          Waiting for other user to decide secret code....
+        </h1>
+      </div>
+    );
+  }
+
+  if (roundInfo.status === status.NOT_STARTED && !userInfo.isCodeBreaker) {
+    return (
+      <div className="w-11/12 max-w-[500px] mx-auto min-h-[100vh] flex flex-col items-center justify-center gap-4">
+        <h1 className="font-bold text-4xl text-center">
+          Decide on the secret code.
+        </h1>
+        <div className="bg-[#d8cfc9] w-full">
+          <div className="w-11/12 mx-auto py-3 flex flex-col gap-2">
+            <h2 className="font-bold text-center underline">
+              Current Selection
+            </h2>
+            <div
+              className="w-full gap-2 gap-y-3"
+              style={{
+                display: "grid",
+                gridTemplateColumns: gridTemplateColumnsValue,
+              }}
+            >
+              {possibleHoles.map((_value, index) => (
+                <div
+                  className="bg-white rounded-full w-full aspect-square mx-auto relative max-w-[40px]"
+                  key={index}
                 >
-                  Clear
-                </button>
-                <button
-                  className="border-2 border-black px-2 bg-[#464242] hover:bg-[#5a5a5a] text-white transition-all disabled:cursor-not-allowed"
-                  onClick={handleMakeMove}
-                  disabled={makeMoveBtnDisabled}
-                >
-                  Make move
-                </button>
-              </div>
-            </div>
-            <div className=" border-black border-2 py-3 mt-2 bg-black">
-              <div className="w-11/12 mx-auto flex flex-col gap-2">
-                <h2 className="font-bold text-white text-center underline">
-                  Options To Choose From
-                </h2>
-                <div className="grid grid-cols-4 gap-2 gap-y-3">
-                  {colorOptions.map((value, index) => (
-                    <button
-                      className="bg-white rounded-full w-[40px] h-[40px] mx-auto disabled:cursor-not-allowed"
-                      key={index}
-                      disabled={optionBtnDisabled}
-                      onClick={() => {
-                        handleOptionClick(value);
-                      }}
-                    >
-                      {value}
-                    </button>
-                  ))}
+                  <p className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2">
+                    {currSecretCodeSelection[index] ?? ""}
+                  </p>
                 </div>
-              </div>
+              ))}
+            </div>
+            <div className="flex gap-4 justify-center">
+              <button
+                className="border-2 border-black px-2 bg-white rounded-sm hover:bg-gray-200 transition-all"
+                onClick={handleClearSecretCodeSelection}
+              >
+                Clear
+              </button>
+              <button
+                className="border-2 border-black px-2 bg-[#464242] hover:bg-[#5a5a5a] text-white transition-all disabled:cursor-not-allowed"
+                onClick={handleAddSecretCode}
+              >
+                Choose Secret Code
+              </button>
             </div>
           </div>
-          {roundInfo.status === status.COMPLETED && (
-            <div className="flex flex-row gap-4 justify-around bg-yellow-200 py-3">
-              <button
-                className="bg-white p-3 border-black border-2"
-                onClick={() => {
-                  navigate("/");
-                }}
-              >
-                Back Home
-              </button>
-              <button
-                className="bg-white p-3 border-black border-2"
-                onClick={createSinglePlayerGame}
-              >
-                New Game
-              </button>
+        </div>
+        <div className=" border-black border-2 py-3 mt-2 bg-black w-full">
+          <div className="w-11/12 mx-auto flex flex-col gap-2">
+            <h2 className="font-bold text-white text-center underline">
+              Options To Choose From
+            </h2>
+            <div className="grid grid-cols-4 gap-2 gap-y-3">
+              {colorOptions.map((value, index) => (
+                <button
+                  className="bg-white rounded-full w-[40px] h-[40px] mx-auto disabled:cursor-not-allowed"
+                  key={index}
+                  disabled={secretCodeOptionBtnDisabled}
+                  onClick={() => {
+                    handleSecretCodeOptionClick(value);
+                  }}
+                >
+                  {value}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
   }
+
+  return (
+    <div className="pb-10 flex flex-col">
+      <Header />
+      <div className="w-11/12 max-w-[500px] mx-auto h-full flex-grow">
+        <img src={logo} alt="mastermind logo" className="my-3" />
+        <div className="bg-white border-2 border-black text-center">
+          {roundInfo.feedback}
+        </div>
+        {roundInfo.secretCode && (
+          <div className="bg-black border-2 border-black text-center py-3 flex flex-col gap-2">
+            <h2 className="font-bold text-center underline text-white">
+              Secret Code
+            </h2>
+            <div
+              className=" gap-2 gap-y-3 w-11/12 mx-auto"
+              style={{
+                display: "grid",
+                gridTemplateColumns: gridTemplateColumnsValue,
+              }}
+            >
+              {roundInfo.secretCode.map((value, index) => (
+                <div
+                  className="bg-white rounded-full w-full aspect-square mx-auto relative max-w-[40px]"
+                  key={index}
+                >
+                  <p className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="bg-[#d18b5f] py-3 flex flex-col gap-2">
+          <h2 className="font-bold text-center underline">Game History</h2>
+          {emptyRowsArr.map((_, index) => (
+            <EmptyGameRow key={index} numHoles={gameSettings.numHoles} />
+          ))}
+          {roundInfo.turnHistory
+            .slice()
+            .reverse()
+            .map((turn, index) => (
+              <GameRow key={index} data={turn} />
+            ))}
+        </div>
+        <div className="bg-[#d8cfc9]">
+          <div className="w-11/12 mx-auto py-3 flex flex-col gap-2">
+            <h2 className="font-bold text-center underline">
+              Current Selection
+            </h2>
+            <div
+              className="w-full gap-2 gap-y-3"
+              style={{
+                display: "grid",
+                gridTemplateColumns: gridTemplateColumnsValue,
+              }}
+            >
+              {possibleHoles.map((_value, index) => (
+                <div
+                  className="bg-white rounded-full w-full aspect-square mx-auto relative max-w-[40px]"
+                  key={index}
+                >
+                  <p className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2">
+                    {currChoice[index] ?? ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-4 justify-center">
+              <button
+                className="border-2 border-black px-2 bg-white rounded-sm hover:bg-gray-200 transition-all"
+                onClick={handleClear}
+                disabled={!userInfo.isCodeBreaker}
+              >
+                Clear
+              </button>
+              <button
+                className="border-2 border-black px-2 bg-[#464242] hover:bg-[#5a5a5a] text-white transition-all disabled:cursor-not-allowed"
+                onClick={handleMakeMove}
+                disabled={makeMoveBtnDisabled}
+              >
+                Make move
+              </button>
+            </div>
+          </div>
+          <div className=" border-black border-2 py-3 mt-2 bg-black">
+            <div className="w-11/12 mx-auto flex flex-col gap-2">
+              <h2 className="font-bold text-white text-center underline">
+                Options To Choose From
+              </h2>
+              <div className="grid grid-cols-4 gap-2 gap-y-3">
+                {colorOptions.map((value, index) => (
+                  <button
+                    className="bg-white rounded-full w-[40px] h-[40px] mx-auto disabled:cursor-not-allowed"
+                    key={index}
+                    disabled={optionBtnDisabled}
+                    onClick={() => {
+                      handleOptionClick(value);
+                    }}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {roundInfo.status === status.COMPLETED && (
+          <div className="flex flex-row gap-4 justify-around bg-yellow-200 py-3">
+            <button
+              className="bg-white p-3 border-black border-2"
+              onClick={() => {
+                navigate("/");
+              }}
+            >
+              Back Home
+            </button>
+            <button className="bg-white p-3 border-black border-2">
+              Next Round
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default MultiplayerGame;

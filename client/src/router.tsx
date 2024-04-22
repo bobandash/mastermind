@@ -3,6 +3,7 @@ import HomePage from "./pages/Home";
 import SingleplayerSelect from "./pages/SingleplayerSelect";
 import Game from "./pages/Game";
 import WaitingRoom from "./pages/WaitingRoom";
+import MultiplayerGame from "./pages/MultiplayerGame";
 
 const router = createBrowserRouter([
   {
@@ -19,7 +20,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/multiplayerGame/:gameId/rounds/:roundId",
-    element: <Game />,
+    element: <MultiplayerGame />,
   },
   {
     path: "/room/:roomId",

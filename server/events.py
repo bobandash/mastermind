@@ -27,7 +27,7 @@ def handle_join_waiting_room(data):
     room = data.get("room")
     players = data.get("players")
     join_room(room)
-    emit("user_joined", players, room=room)
+    emit("user joined new room", players, room=room)
 
 
 @socketio.on("change_game_settings")
@@ -45,6 +45,24 @@ def create_game(data):
         data.get("room"),
     )
     emit("join_multiplayer_game", {"game_id": game_id, "round_id": round_id}, room=room)
-    # game_id: gameId,
-    # round_id: roundId,
-    # room: waitingRoomId,
+
+
+# Handles all logic related to the multiplayer feature
+@socketio.on("join_multiplayer_round")
+def handle_join_new_multiplayer_round(data):
+    room = data.get("room")
+    join_room(room)
+    emit("new_round", room=room)
+
+
+@socketio.on("add_secret_code")
+def add_secret_code(data):
+    status, room = data.get("status"), data.get("room")
+    print(status)
+    emit("start_round", {"status": status}, room=room)
+
+
+@socketio.on("make_move")
+def make_move(data):
+    round_info, room = data.get("round_info"), data.get("room")
+    emit("new_move_info", {"round_info": round_info}, room=room)
