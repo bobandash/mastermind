@@ -27,7 +27,7 @@ def handle_join_waiting_room(data):
     room = data.get("room")
     players = data.get("players")
     join_room(room)
-    emit("user joined new room", players, room=room)
+    emit("user_joined", players, room=room)
 
 
 @socketio.on("change_game_settings")
