@@ -85,15 +85,13 @@ class Round(db.Model):
     status = db.Column(db.Enum(StatusEnum), nullable=False)
     code_breaker_id = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
     round_num = db.Column(db.Integer, nullable=False)
-    secret_code = db.Column(
-        db.String(255), nullable=False
-    )  # Stored as a json.dumps array of integers
+    secret_code = db.Column(db.String(255))  # Stored as a json.dumps array of integers
     points = db.Column(db.Integer, default=None)
     turns = db.relationship("Turn", backref="round")
 
     @validates("game", "secret_code")
     def validate_secret_code(self, key, value):
-        if key == "secret_code" and self.game:
+        if key == "secret_code" and value and self.game:
             num_holes = self.game.difficulty.num_holes
             num_colors = self.game.difficulty.num_colors
             try:

@@ -52,6 +52,11 @@ const WaitingRoom = () => {
     setSettings(data);
   });
 
+  socket.on("join_multiplayer_game", (data) => {
+    const { game_id: GameId, round_id: roundId } = data;
+    navigate(`/multiplayerGame/${GameId}/rounds/${roundId}`);
+  });
+
   useEffect(() => {
     async function getWaitingRoomInfo() {
       try {
@@ -99,13 +104,17 @@ const WaitingRoom = () => {
         num_rounds: numRounds,
         room_id: Number(roomId),
       });
-      const gameData = gameResponse.data;
-      console.log(gameData);
-      // const roundResponse = await authAxios.post(
-      //   `/api/v1.0/games/${gameId}/rounds`
-      // );
-      // const roundId = roundResponse.data.id;
-      // navigate(`/games/${gameId}/rounds/${roundId}`);
+      const gameId = gameResponse.data.id;
+      const roundResponse = await authAxios.post(
+        `/api/v1.0/games/${gameId}/rounds`
+      );
+      const roundId = roundResponse.data.id;
+      socket.emit("create_multiplayer_game", {
+        game_id: gameId,
+        round_id: roundId,
+        room: waitingRoomId,
+      });
+      navigate(`/multiplayerGame/${gameId}/rounds/${roundId}`);
     } catch {
       console.error("Failed to create game.");
     }

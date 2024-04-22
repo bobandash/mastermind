@@ -184,18 +184,37 @@ def get_game_details(game_id):
 def create_game_rounds(game_id):
     user = request.user
     game = request.game
+    code_breaker_id = user.id
+    round_num = 1
     if len(game.rounds) >= game.num_rounds:
         return ErrorResponse.handle_error(
             "Cannot create any more rounds. Game is on last round.", 400
         )
 
-    if game.rounds and game.rounds[-1].status == StatusEnum.IN_PROGRESS:
+    if game.rounds and (
+        game.rounds[-1].status == StatusEnum.IN_PROGRESS
+        or game.rounds[-1].status == StatusEnum.NOT_STARTED
+    ):
         return ErrorResponse.handle_error(
             "Cannot create a round. Previous round is still in progress.", 400
         )
 
-    if game.is_multiplayer == False:
-        num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
+    # Initially sets the first code breaker to be the host of the multiplayer game
+    # Unless there are previous rounds, then go in sequential order
+    if game.is_multiplayer and game.rounds and game.rounds[-1]:
+        round_num = len(game.rounds) + 1
+        prev_code_breaker = game.rounds[-1].code_breaker_id
+        playerIds = [player.id for player in game.players]
+        if code_breaker_id == prev_code_breaker:
+            for playerId in playerIds:
+                if code_breaker_id != playerId:
+                    playerId = code_breaker_id
+                    break
+
+    num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
+    secret_code = None
+
+    if not game.is_multiplayer:
         try:
             # Calls external API
             secret_code = get_random_secret_code(num_holes, num_colors)
@@ -205,43 +224,41 @@ def create_game_rounds(game_id):
                 f"Failed to generate computer's secret code.", 500
             )
 
-        try:
-            round = Round(
-                game_id=game.id,
-                status=StatusEnum.IN_PROGRESS,
-                code_breaker_id=user.id,
-                round_num=1,
-                secret_code=secret_code,
-            )
-            if game.status == StatusEnum.NOT_STARTED:
-                game.status = StatusEnum.IN_PROGRESS
-            db.session.add(round)
-            db.session.commit()
-        except (SQLAlchemyError, ValueError) as e:
-            db.session.rollback()
-            logging.error(f"Error creating round: {str(e)}")
-            return ErrorResponse.handle_error(
-                "Round creation failed. Please check the provided data.",
-                500,
-            )
-
-        return (
-            jsonify(
-                {
-                    "id": round.id,
-                    "code_breaker_id": user.id,
-                    "round_num": 1,
-                }
+    try:
+        round = Round(
+            game_id=game.id,
+            status=(
+                StatusEnum.IN_PROGRESS
+                if not game.is_multiplayer
+                else StatusEnum.NOT_STARTED
             ),
-            201,
+            code_breaker_id=code_breaker_id,
+            round_num=round_num,
+            secret_code=secret_code,
         )
-    else:
-        # TODO: handle multiplayer
-        data = request.get_json()
-        secret_code = data.get("secret_code")
-        if not secret_code:
-            return ErrorResponse.handle_error("User did not provide secret code.", 400)
-    return jsonify({"message": "Test"}), 200
+        if game.status == StatusEnum.NOT_STARTED:
+            game.status = StatusEnum.IN_PROGRESS
+        db.session.add(round)
+        db.session.commit()
+    except (SQLAlchemyError, ValueError) as e:
+        db.session.rollback()
+        logging.error(f"Error creating round: {str(e)}")
+        return ErrorResponse.handle_error(
+            "Round creation failed. Please check the provided data.",
+            500,
+        )
+
+    return (
+        jsonify(
+            {
+                "id": round.id,
+                "code_breaker_id": user.id,
+                "round_num": 1,
+                "status": round.status.name,
+            }
+        ),
+        201,
+    )
 
 
 # Generates random secret code

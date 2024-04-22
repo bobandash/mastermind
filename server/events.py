@@ -35,3 +35,16 @@ def change_settings(data):
     room = data.get("room")
     settings = data.get("settings")
     emit("game_settings", settings, room=room)
+
+
+@socketio.on("create_multiplayer_game")
+def create_game(data):
+    game_id, round_id, room = (
+        data.get("game_id"),
+        data.get("round_id"),
+        data.get("room"),
+    )
+    emit("join_multiplayer_game", {"game_id": game_id, "round_id": round_id}, room=room)
+    # game_id: gameId,
+    # round_id: roundId,
+    # room: waitingRoomId,
