@@ -1,8 +1,9 @@
 # Mastermind
-This rendition of Mastermind was done as a part of my application to LinkedIn's REACH apprenticeship program. The application includes the core features of Mastermind, configurable difficulties that the user can choose from, and the multiplayer functionality using socket.io. <br /><br />
+This rendition of Mastermind was done as a part of my application to LinkedIn's REACH apprenticeship program. The application includes the core features of Mastermind, configurable difficulties that the user can choose from, and the multiplayer functionality using Socket.io. <br /><br />
 
 ## Preview
 ![image](https://github.com/bobandash/mastermind/assets/74850332/cb2b51b2-29f5-46eb-953e-a2e197ee7f21)
+![image](https://github.com/bobandash/mastermind/assets/74850332/cc73e0f0-1b78-4ebf-9a74-53e3bc0aeaba)
 
 
 ## Relevant Technologies Used:
