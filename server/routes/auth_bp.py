@@ -100,7 +100,11 @@ def login_user():
     if not all([email, password]):
         return ErrorResponse.handle_error("Necessary field data is missing.", 400)
 
-    user = User.query.filter_by(email=email).first()
+    try:
+        user = User.query.filter_by(email=email).first()
+    except SQLAlchemyError as e:
+        logging.error(f"Error fetching user: {str(e)}")
+        return ErrorResponse.handle_error("User was not able to be fetched.", 503)
 
     # CASE: Some users don't have not registered persistent login
     if not user or (user and not user.password):

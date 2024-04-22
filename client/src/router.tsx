@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import HomePage from "./pages/Home";
 import SingleplayerSelect from "./pages/SingleplayerSelect";
 import Game from "./pages/Game";
+import WaitingRoom from "./pages/WaitingRoom";
 
 const router = createBrowserRouter([
   {
@@ -15,6 +16,10 @@ const router = createBrowserRouter([
   {
     path: "/games/:gameId/rounds/:roundId",
     element: <Game />,
+  },
+  {
+    path: "/room/:roomId",
+    element: <WaitingRoom />,
   },
 ]);
 

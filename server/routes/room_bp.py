@@ -25,8 +25,8 @@ def generate_unique_code(length):
     return code
 
 
-@session_required
 @room_bp.route("/", methods=["POST"])
+@session_required
 def create_room():
     user = request.user
     try:
@@ -49,7 +49,10 @@ def create_room():
             {
                 "id": waiting_room.id,
                 "code": waiting_room.code,
-                "players": [player.id for player in waiting_room.players],
+                "players": [
+                    {"id": player.id, "username": player.username}
+                    for player in waiting_room.players
+                ],
             }
         )
     except (SQLAlchemyError, ValueError) as e:
@@ -59,3 +62,75 @@ def create_room():
             "Error creating new waiting room.",
             500,
         )
+
+
+@room_bp.route("/join", methods=["POST"])
+@session_required
+def join_room():
+    if request.content_type != "application/json":
+        return ErrorResponse.handle_error("Username was not provided.", 415)
+    user = request.user
+    code = request.get_json().get("code")
+    if not code:
+        return ErrorResponse.handle_error("Code not provided.", 400)
+    waiting_room = WaitingRoom.query.filter_by(code=code).first()
+    if not waiting_room:
+        return ErrorResponse.handle_error("Code is invalid.", 400)
+    if len(waiting_room.players) >= 2:
+        return ErrorResponse.handle_error(
+            "Room is full.", 403
+        )  # TODO; find more appropriate error code
+
+    try:
+        waiting_room.players.append(user)
+        db.session.commit()
+        return jsonify(
+            {
+                "id": waiting_room.id,
+                "code": waiting_room.code,
+                "players": [
+                    {"id": player.id, "username": player.username}
+                    for player in waiting_room.players
+                ],
+            }
+        )
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logging.error(f"Error creating new waiting room: {str(e)}")
+        return ErrorResponse.handle_error(
+            "Error creating new waiting room.",
+            500,
+        )
+
+
+@room_bp.route("/<room_id>", methods=["GET"])
+@session_required
+def get_room_info(room_id):
+    user = request.user
+    try:
+        waiting_room = WaitingRoom.query.get(room_id)
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logging.error(f"Error getting waiting room: {str(e)}")
+        return ErrorResponse.handle_error(
+            "Error getting waiting room.",
+            503,
+        )
+
+    player_ids = [player.id for player in waiting_room.players]
+    if user.id not in player_ids:
+        return ErrorResponse.handle_error("User is not a part of waiting room", 401)
+
+    return (
+        jsonify(
+            {
+                "id": waiting_room.id,
+                "code": waiting_room.code,
+                "players": [
+                    {"id": player.id, "username": player.username}
+                    for player in waiting_room.players
+                ],
+            }
+        ),
+        200,
+    )

@@ -181,5 +181,5 @@ class Turn(db.Model):
 # Waiting room for players
 class WaitingRoom(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.Integer, unique=True)
+    code = db.Column(db.String(6), unique=True)
     players = db.relationship("User", backref="waiting_room")
