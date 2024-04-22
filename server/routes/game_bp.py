@@ -207,11 +207,11 @@ def create_game_rounds(game_id):
     if game.is_multiplayer and game.rounds and game.rounds[-1]:
         round_num = len(game.rounds) + 1
         prev_code_breaker = game.rounds[-1].code_breaker_id
-        playerIds = [player.id for player in game.players]
+        player_ids = [player.id for player in game.players]
         if code_breaker_id == prev_code_breaker:
-            for playerId in playerIds:
-                if code_breaker_id != playerId:
-                    playerId = code_breaker_id
+            for player_id in player_ids:
+                if code_breaker_id != player_id:
+                    code_breaker_id = player_id
                     break
 
     num_holes, num_colors = game.difficulty.num_holes, game.difficulty.num_colors
