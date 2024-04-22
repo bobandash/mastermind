@@ -248,11 +248,3 @@ def update_game_settings(room_id):
         ),
         200,
     )
-
-
-@room_bp.route("/<room_id>/leave", methods=["POST"])
-@session_required
-@check_user_in_waiting_room
-def leave_room(room_id):
-    user = request.user
-    waiting_room = request.waiting_room
