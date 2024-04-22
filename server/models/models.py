@@ -33,6 +33,7 @@ class User(db.Model):
     waiting_room_id = db.Column(
         db.Integer, db.ForeignKey("waiting_room.id")
     )  # Users can only be in one waiting room at a time
+    is_host = db.Column(db.Boolean, default=False)
 
     @validates("email")
     def validate_email(self, key, value):
