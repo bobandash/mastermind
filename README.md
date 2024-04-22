@@ -11,10 +11,11 @@ Backend:
 - Language: Python
 - Web Framework: Flask
 - Database: PostgreSQL and Redis
+- Important Libraries: Socket.io
 
 Front-End:
 - Language: Typescript
-- Important NPM Libraries: TailwindCSS, Axios
+- Important Libraries: TailwindCSS, Axios, Socket.io
 
 
 ## Installation and Running the Project
@@ -40,14 +41,20 @@ If you are using windows and cannot find a compatible download link for redis, p
 4. Go to localhost:5173, and your application should be running!
 
 ## Thought Process and Code Structure
-![image](https://github.com/bobandash/mastermind/assets/74850332/e0feef18-a53c-4400-9862-2de775129da4)
+![image](https://github.com/bobandash/mastermind/assets/74850332/d0704038-5eb8-44a8-bb51-452b6614e468)
 
-I decided to use a relational database (PostgreSQL) for this application because many of the schemas in the mastermind game have a clear hierarchy (a game has multiple rounds, a round has multiple turns, etc.). Before beginning the project, I was also researching a lot about server-side sessions vs JWT while deciding my implementation, but I chose to use server-side sessions because, if I wanted to make this into an online multiplayer game, it would be better to use a stateful method of tracking whether or not the user is signed in. 
+I decided to use a relational database (PostgreSQL) for this application because many of the schemas in the mastermind game have a clear hierarchy (a game has multiple rounds, a round has multiple turns, etc.).
 
-In regards to authentication, I wanted automatic authentication without any username or passwords in my application (similar to games like CodeNames online or Pokemon Showdown) because I needed to use the session token to prevent the user from accessing resources that they were unauthorized to access (such as games or rounds they were not a part of), secret code for ongoing rounds, etc).
+Before beginning the project, I was also researching a lot about server-side sessions vs JWT while deciding my implementation, but I chose to use server-side sessions because, if I wanted to make this into an online multiplayer game, it would be better to use a stateful method of tracking whether or not the user is signed in. In regards to authentication, I wanted automatic authentication without any username or passwords in my application (similar to games like CodeNames online or Pokemon Showdown), with the option to register a persistent login in the future, similar to how games like Pokemon Showdown allow you to view and save your stats if you sign in. I also decided to use server side session to prevent the user from accessing resources that they were unauthorized to access (such as games or rounds they were not a part of, the secret code for ongoing rounds, etc).
 
-In regards to routing, the game logic routes were primarily structured in this format:
+In regards to routing and the backend structure, the game logic routes were primarily structured in this format:
 - /games - handle everything related to getting game details, creating new games, and creating rounds inside games
-- /rounds - handle everything related to getting specific round details and creating new turns within games
+- /rounds - handle everything related to getting specific round details, getting the secret code, and creating new turns within the rounds
 - /auth - handle authentication and creating accounts for persistent state
-- /user - get current user details and edit username
+- /user - get current user details and allow users to edit their username
+- /rooms - allow users to create, join rooms, and edit rooms if they are the host of the room
+
+## Potential Improvements
+- Keeping and displaying score of the multiplayer games
+- Tracking the stats of the user
+- Fetching the match history against a certain player
