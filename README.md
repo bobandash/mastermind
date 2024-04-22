@@ -43,4 +43,10 @@ If you are using windows and cannot find a compatible download link for redis, p
 
 I decided to use a relational database (PostgreSQL) for this application because many of the schemas in the mastermind game have a clear hierarchy (a game has multiple rounds, a round has multiple turns, etc.). Before beginning the project, I was also researching a lot about server-side sessions vs JWT while deciding my implementation, but I chose to use server-side sessions because, if I wanted to make this into an online multiplayer game, it would be better to use a stateful method of tracking whether or not the user is signed in. 
 
-On the initial render of the application, a 
+In regards to authentication, I wanted automatic authentication without any username or passwords in my application (similar to games like CodeNames online or Pokemon Showdown) because I needed to use the session token to prevent the user from accessing resources that they were unauthorized to access (such as games or rounds they were not a part of), secret code for ongoing rounds, etc).
+
+In regards to routing, the game logic routes were primarily structured in this format:
+- /games - handle everything related to getting game details, creating new games, and creating rounds inside games
+- /rounds - handle everything related to getting specific round details and creating new turns within games
+- /auth - handle authentication and creating accounts for persistent state
+- /user - get current user details and edit username
