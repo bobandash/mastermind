@@ -137,7 +137,6 @@ def create_new_game():
             )
 
 
-# TODO: Code breaker should be allowed to view secret_code for ongoing round
 @game_bp.route("/<game_id>", methods=["GET"])
 @session_required
 @check_user_in_game
@@ -156,6 +155,7 @@ def get_game_details(game_id):
                 "num_holes": difficulty.num_holes,
                 "num_colors": difficulty.num_colors,
             },
+            "num_rounds": game.num_rounds,
             "rounds": [
                 {
                     "id": round.id,

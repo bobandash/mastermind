@@ -60,7 +60,7 @@ type ErrorProps = {
 const GameRow: FC<GameRowProps> = ({ data }) => {
   const { guess, result } = data;
   const numCols = guess.length + 1;
-  const numColsPeg = Math.min(Math.round(guess.length / 2), 3); // TODO: create a better way to visually show the number of pegs
+  const numColsPeg = Math.min(Math.round(guess.length / 2), 3);
   const gridTemplateColumnsRow = `repeat(${numCols}, 1fr)`;
   const gridTemplateColumnsPegs = `repeat(${numColsPeg}, 1fr)`;
   const { black_pegs, white_pegs } = result;
@@ -156,7 +156,7 @@ const MultiplayerGame = () => {
   const { gameId, roundId } = useParams();
   const socketRoomId = `game_${gameId}_round_${roundId}`;
 
-  // ALl socket logic
+  // All socket logic
   socket.on("connect", () => {
     console.log("Connected to server");
   });
@@ -181,6 +181,11 @@ const MultiplayerGame = () => {
     }));
   });
 
+  socket.on("new_round_info", (data) => {
+    const { game_id, round_id } = data;
+    navigate(`/multiplayerGame/${game_id}/rounds/${round_id}`);
+  });
+
   const [roundInfo, setRoundInfo] = useState<RoundInfoState>({
     status: status.IN_PROGRESS,
     turnHistory: [],
@@ -197,12 +202,13 @@ const MultiplayerGame = () => {
     numHoles: 0,
     isMultiplayer: false,
     mode: DIFFICULTIES.HARD,
+    numRounds: 0,
   });
   const [userInfo, setUserInfo] = useState<UserInfoProps>({
     id: "",
     isCodeBreaker: false, // if false, that means user is code maker
   });
-  const [, setGameStatus] = useState({
+  const [gameStatus, setGameStatus] = useState({
     rounds: [],
     status: status.NOT_STARTED,
   });
@@ -230,7 +236,8 @@ const MultiplayerGame = () => {
           isCodeBreaker: isCodeBreaker,
         });
         const roundData = roundRes.data;
-        const { difficulty, rounds, status, is_multiplayer } = gameRes.data;
+        const { difficulty, rounds, status, is_multiplayer, num_rounds } =
+          gameRes.data;
         let feedback =
           roundData?.turns[roundData.turns.length - 1]?.result?.message ??
           "Make your move.";
@@ -249,6 +256,7 @@ const MultiplayerGame = () => {
           numColors: difficulty.num_colors,
           numHoles: difficulty.num_holes,
           isMultiplayer: is_multiplayer,
+          numRounds: num_rounds,
         }));
         setRoundInfo((prevRoundInfo) => ({
           ...prevRoundInfo,
@@ -279,6 +287,19 @@ const MultiplayerGame = () => {
     }
     getGameInfo();
   }, [roundId, gameId, socketRoomId]);
+
+  async function createNewRound() {
+    const roundResponse = await authAxios.post(
+      `/api/v1.0/games/${gameId}/rounds`
+    );
+    const roundId = roundResponse.data.id;
+    socket.emit("create_new_round", {
+      room: socketRoomId,
+      game_id: gameId,
+      round_id: roundId,
+    });
+    navigate(`/multiplayerGame/${gameId}/rounds/${roundId}`);
+  }
 
   // Choices start starts at 0
   const colorOptions = useMemo(() => {
@@ -600,9 +621,14 @@ const MultiplayerGame = () => {
             >
               Back Home
             </button>
-            <button className="bg-white p-3 border-black border-2">
-              Next Round
-            </button>
+            {gameStatus.rounds.length < gameSettings.numRounds && (
+              <button
+                className="bg-white p-3 border-black border-2"
+                onClick={createNewRound}
+              >
+                Next Round
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -66,3 +66,14 @@ def add_secret_code(data):
 def make_move(data):
     round_info, room = data.get("round_info"), data.get("room")
     emit("new_move_info", {"round_info": round_info}, room=room)
+
+
+@socketio.on("create_new_round")
+def create_new_round(data):
+    game_id, round_id, room = (
+        data.get("game_id"),
+        data.get("round_id"),
+        data.get("room"),
+    )
+    emit("new_round_info", {"game_id": game_id, "round_id": round_id}, room=room)
+    leave_room(room)
