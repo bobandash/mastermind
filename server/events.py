@@ -30,13 +30,6 @@ def handle_join_waiting_room(data):
     emit("user_joined", players, room=room)
 
 
-@socketio.on("init_game_settings")
-def init_game_settings(data):
-    room = data.get("room")
-    settings = data.get("settings")
-    emit("game_settings", settings, room=room)
-
-
 @socketio.on("change_game_settings")
 def change_settings(data):
     room = data.get("room")

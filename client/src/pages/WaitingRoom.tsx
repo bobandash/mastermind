@@ -46,10 +46,6 @@ const WaitingRoom = () => {
 
   socket.on("user_joined", (data) => {
     setUsers(data);
-    // socket.emit("init_game_settings", {
-    //   room: waitingRoomId,
-    //   settings: settings,
-    // });
   });
 
   socket.on("game_settings", (data) => {
@@ -293,7 +289,10 @@ const WaitingRoom = () => {
               ))}
             </select>
           </div>
-          <button className="bg-[#F24545] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#f56262] transition-all uppercase disabled:text-[#c5c5c5] disabled:border-[#c5c5c5]">
+          <button
+            className="bg-[#F24545] text-4xl w-full mx-auto text-white border-2 border-black py-2 rounded-xl hover:bg-[#f56262] transition-all uppercase disabled:text-[#c5c5c5] disabled:border-[#c5c5c5]"
+            disabled={!isHost}
+          >
             Start Game
           </button>
         </form>
