@@ -59,6 +59,19 @@ const WaitingRoom = () => {
         const userResponse = await authAxios.get("/api/v1.0/users/me");
         const data = response.data;
         const userData = userResponse.data;
+        const difficulty = response.data.difficulty;
+        const numRounds = response.data.num_rounds;
+        const { max_turns, mode, num_colors, num_holes } = difficulty;
+        setSettings((prevSettings) => {
+          return {
+            ...prevSettings,
+            maxTurns: max_turns,
+            difficulty: mode,
+            numHoles: num_holes,
+            numColors: num_colors,
+            numROunds: numRounds,
+          };
+        });
         setIsHost(userData.is_host);
         setCode(data.code);
         setUsers(data.players);

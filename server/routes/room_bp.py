@@ -37,7 +37,19 @@ def create_room():
         return ErrorResponse.handle_error("Waiting rooms not able to be fetched.", 503)
 
     try:
-        waiting_room = WaitingRoom(code=code)
+        normal_difficulty = Difficulty.query.filter_by(
+            mode=DifficultyEnum.NORMAL
+        ).first()
+    except SQLAlchemyError as e:
+        logging.error(f"Error fetching normal difficulty {str(e)}")
+        return ErrorResponse.handle_error(
+            "Normal difficulty not able to be fetched.", 503
+        )
+
+    try:
+        waiting_room = WaitingRoom(
+            code=code, difficulty=normal_difficulty, num_rounds=2
+        )
         waiting_room.players.append(user)
         user.is_host = True
     except (TypeError, ValueError):
@@ -116,6 +128,7 @@ def join_room():
 @check_user_in_waiting_room
 def get_room_info(room_id):
     waiting_room = request.waiting_room
+    difficulty = waiting_room.difficulty
     return (
         jsonify(
             {
@@ -129,6 +142,14 @@ def get_room_info(room_id):
                     }
                     for player in waiting_room.players
                 ],
+                "difficulty": {
+                    "id": difficulty.id,
+                    "mode": difficulty.mode.name,
+                    "max_turns": difficulty.max_turns,
+                    "num_holes": difficulty.num_holes,
+                    "num_colors": difficulty.num_colors,
+                },
+                "num_rounds": waiting_room.num_rounds,
             }
         ),
         200,
@@ -206,3 +227,11 @@ def update_game_settings(room_id):
         ),
         200,
     )
+
+
+@room_bp.route("/<room_id>/leave", methods=["POST"])
+@session_required
+@check_user_in_waiting_room
+def leave_room(room_id):
+    user = request.user
+    waiting_room = request.waiting_room
