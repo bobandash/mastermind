@@ -1,5 +1,5 @@
 # Mastermind
-This rendition of Mastermind was done as a part of my application to LinkedIn's REACH apprenticeship program. The application includes the core features of Mastermind, configurable difficulties that the user can choose from, and the multiplayer functionality using Socket.io. <br /><br />
+This rendition of Mastermind was done as a part of my application to LinkedIn's REACH apprenticeship program. The application includes the core features of Mastermind, configurable difficulties that the user can choose from, and the multiplayer functionality using Socket.io. I also implemented points for each completed round; however, I did not have the opportunity to display the final score of games in the frontend.<br /><br />
 
 ## Preview
 ![image](https://github.com/bobandash/mastermind/assets/74850332/cb2b51b2-29f5-46eb-953e-a2e197ee7f21)
@@ -45,16 +45,18 @@ If you are using windows and cannot find a compatible download link for redis, p
 
 I decided to use a relational database (PostgreSQL) for this application because many of the schemas in the mastermind game have a clear hierarchy (a game has multiple rounds, a round has multiple turns, etc.).
 
-Before beginning the project, I was also researching a lot about server-side sessions vs JWT while deciding my implementation, but I chose to use server-side sessions because, if I wanted to make this into an online multiplayer game, it would be better to use a stateful method of tracking whether or not the user is signed in. In regards to authentication, I wanted automatic authentication without any username or passwords in my application (similar to games like CodeNames online or Pokemon Showdown), with the option to register a persistent login in the future, similar to how games like Pokemon Showdown allow you to view and save your stats if you sign in. I also decided to use server side session to prevent the user from accessing resources that they were unauthorized to access (such as games or rounds they were not a part of, the secret code for ongoing rounds, etc).
+In regards to multiplayer and singleplayer mode, by default, a singleplayer game will have one round, and multiplayer games have 2, 4, 6, or 8 rounds maximum. This is why in my database, games and rounds have a one-many relationship.
 
-In regards to routing and the backend structure, the game logic routes were primarily structured in this format:
-- /games - handle everything related to getting game details, creating new games, and creating rounds inside games
-- /rounds - handle everything related to getting specific round details, getting the secret code, and creating new turns within the rounds
+Before beginning the project, I was also researching a lot about server-side sessions vs JWT while deciding my implementation, but I chose to use server-side sessions because, if I wanted to make this into an online multiplayer game, it would be better to use a stateful method of tracking whether or not the user is signed in. In regards to authentication, I wanted automatic authentication without any username or passwords in my application (similar to games like CodeNames online or Pokemon Showdown), with the option to register a persistent login in the future, similar to how games like Pokemon Showdown allow you to view and save your stats if you sign in. I also decided to use server-side sessions to prevent the user from accessing resources that they were unauthorized to access (such as games or rounds they were not a part of, the secret code for ongoing rounds, etc).
+
+In regards to routing and the backend structure, the backend routes were structured in this format:
+- /games - handle logic related to getting game details, creating new games, and creating rounds inside games
+- /rounds - handle logic related to getting specific round details, getting the secret code, and creating new turns within the rounds
 - /auth - handle authentication and creating accounts for persistent state
-- /user - get current user details and allow users to edit their username
+- /users - get current user details and allow users to edit their username
 - /rooms - allow users to create, join rooms, and edit rooms if they are the host of the room
 
-## Potential Improvements
+## Potential Backend Improvements
 - Keeping and displaying score of the multiplayer games
 - Tracking the stats of the user
 - Fetching the match history against a certain player
