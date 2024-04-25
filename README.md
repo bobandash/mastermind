@@ -36,7 +36,7 @@ If you are using windows and cannot find a compatible download link for redis, p
    - Create the models in your local PostgreSQL database by running "python -m flask db upgrade"
    - Initialize the database with all the difficulty options "python -m init_db"
    - Start the application with "python -m app"
-3. Change the working directory to the server (cd server) and follow these steps:
+3. Change the working directory to the server (cd client) and follow these steps:
    - Start the client side with "npm run dev"
 4. Go to localhost:5173, and your application should be running!
 
