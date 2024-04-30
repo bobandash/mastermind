@@ -29,7 +29,8 @@ If you are using windows and cannot find a compatible download link for redis, p
 ### Set-up
 1. Clone the repository (run "git clone https://github.com/bobandash/mastermind.git") in a IDE of your choice
 2. Change the working directory to the server (cd server) and follow these steps:
-   - Activate your virtual environment - ".\venv\Scripts\activate" - 
+   - Create your virtual environment - "python -m venv venv" 
+   - Activate your virtual environment - ".\venv\Scripts\activate" 
    - Download all the dependencies in the virtual environment - "pip install -r requirements.txt"
    - Select your Python interpreter (if you are using VSCode, press control+shift+p and type > python: select interpreter) and select the file at venv/Scripts/python.exe
    - Create a .env file in the server directory and put your PostgreSQL database URL, Redis URL, and secret key (follow the format in the .sample.env)
